@@ -152,4 +152,126 @@ decyzji o braku dalszych pobrań ani oddzieleniu nowego SKOOP.
 AFFECTED VERSION: `OLD-r599-1TO1-FROZEN-001`;
 dokumentacja `DOCS-2026-08-22-02`.
 
+## D-009
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-01 — AKCEPTUJĘ`
+DECISION: Pierwszy UNIVERSE SKOOP obejmuje pełny katalog aktywnych spółek
+dostępnych w zatwierdzonym zakresie Massive. Każdy instrument otrzymuje jawną
+klasyfikację typu, giełdy, kraju i waluty. Pierwszy import służy audytowi
+kompletności zasobu i nie kwalifikuje automatycznie spółek do BASE. Stare mixed
+universe OLD nie jest automatycznie kopiowane do nowego produktu.
+RATIONALE: użytkownik chce widzieć cały dostępny zasób i oceniać kompletność oraz
+założenia BASE na podstawie danych, bez przenoszenia błędnych mechanizmów OLD.
+SUPERSEDES: brak; zamyka `C-03` i `UD-01` aktywnej paczki.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-016
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-09 — AKCEPTUJĘ`
+DECISION: Harmonogram SKOOP rozdziela discovery, dane dzienne, IPO, BASE i listing.
+UNIVERSE discovery działa raz dziennie około 04:00 ET. Finalne `1D` powstaje po
+zamknięciu właściwej giełdy. Kalendarz IPO odświeża się raz po rozpoczęciu regularnej
+sesji USA z opóźnieniem ustalonym smoke testem i retry po błędzie. BASE działa
+ciągłą kolejką z docelowym cyklem około 5 minut podczas aktywnej sesji. PRE/POST są
+oddzielone od REGULAR. Obowiązują T0–T4, płynna publikacja ostatnich poprawnych
+danych oraz osobna ścieżka execution. Dokładne limity wynikają dopiero z testu planu
+Massive.
+RATIONALE: różne zbiory, giełdy i typy danych mają inne rytmy; użytkownik ma stale
+dostępny listing bez oczekiwania na pełny przebieg, a koszt providera pozostaje
+kontrolowany.
+SUPERSEDES: IPO co 6 godzin, jeden kalendarz dla wszystkich giełd i blokowe
+zatrzymywanie kolejki; zamyka `C-10` i `UD-09`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-015
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-06 — AKCEPTUJĘ`
+DECISION: Wartości źródłowe pozostają w natywnej walucie instrumentu. USD jest
+oddzielną wartością porównawczą z zapisanym kursem, źródłem, czasem i wersją
+metody. Cena akcji jest domyślnie prezentowana w walucie notowania; kapitalizacja,
+obrót i ADV mogą być porównywane, sortowane i filtrowane w USD. Prawy panel pokazuje
+obie wartości. Dane historyczne używają właściwego historycznego FX. Brak kursu
+oznacza `PENDING_FX`, nigdy zero.
+RATIONALE: globalny UNIVERSE wymaga porównywalności bez utraty oryginalnej wartości
+i bez ukrytego przeliczania danych źródłowych.
+SUPERSEDES: przechowywanie wyłącznie waluty natywnej albo wyłącznie USD; zamyka
+`UD-06`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-014
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-05 — AKCEPTUJĘ`
+DECISION: Każde aktywne IPO otrzymuje po sesji aktualny wykres `1D` i przebieg od
+debiutu. IPO będące w BASE korzysta z pełnej regularnej aktualizacji BASE. Dla IPO
+poza BASE pełny intraday `30m/1H/2H/4H` uruchamia się priorytetem T0 po kliknięciu,
+a wynik pozostaje w cache z jawnym czasem. Sygnał, obserwacja lub portfel uruchamia
+odpowiednio priorytety T1–T3. Nieaktualny wykres jest wyraźnie oznaczony.
+RATIONALE: każda spółka IPO zachowuje użyteczny wykres bez stałego pobierania
+pełnego intraday dla wszystkich spółek poza BASE.
+SUPERSEDES: pełną ciągłą aktualizację intraday każdego IPO niezależnie od użycia;
+zamyka `UD-05`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-013
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-04 — AKCEPTUJĘ`
+DECISION: Po zamknięciu 180. właściwej sesji kończy się aktywny status IPO, a
+spółka jest ponownie oceniana według aktualnych reguł BASE. Spełniająca reguły
+pozostaje albo wchodzi do BASE; niespełniająca pozostaje tylko w UNIVERSE.
+Istniejący status BASE nie znika z powodu ukończenia okna IPO, a sesja 181 nie
+nadaje BASE automatycznie.
+RATIONALE: BASE pozostaje listą spółek zakwalifikowanych, a nie archiwum wszystkich
+dawnych IPO; jednocześnie IPO i BASE mogą nakładać się podczas pierwszych 180 sesji.
+SUPERSEDES: interpretację „po 180 sesjach każda spółka zostaje w BASE”; zamyka
+`C-01`, `C-02` i `UD-04`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-012
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-03 — AKCEPTUJĘ`
+DECISION: Brak ceny, kapitalizacji lub ADV w danych wejściowych BASE daje status
+`PENDING_DATA` i dokładny kod brakującego pola. Spółka pozostaje w UNIVERSE, nie
+jest kwalifikowana ani odrzucana z BASE, trafia do kolejki uzupełnienia i zostaje
+oceniona ponownie po opublikowaniu poprawnych danych. Brak nigdy nie jest zerem.
+RATIONALE: niepełny rekord nie jest dowodem spełnienia ani niespełnienia kryteriów;
+historyczny fail-open r599 powodował ryzyko fałszywych kwalifikacji.
+SUPERSEDES: fail-open dla brakującego mcap/ADV/ceny; zamyka `C-04` i `UD-03`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-011
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: `UD-02 — AKCEPTUJĘ`
+DECISION: Pierwsza BASE nie jest kopiowana z r599 ani tworzona przed poznaniem
+pełnego UNIVERSE. System najpierw przygotowuje raport jakości i kompletności,
+następnie liczy próbne warianty progów bez nadawania członkostwa BASE. Raport
+pokazuje wyniki i powody. Dopiero po jawnej akceptacji reguł przez użytkownika
+powstaje pierwsza wersja `base_state`.
+RATIONALE: progi muszą być ocenione na rzeczywistym pełnym zasobie, aby uniknąć
+przeniesienia błędnych kwalifikacji OLD i nieświadomego zawężenia BASE.
+SUPERSEDES: automatyczne kopiowanie `base_ok` r599 i tworzenie BASE przed raportem;
+zamyka `UD-02`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
+## D-010
+DATE: 2026-08-24
+STATUS: ACCEPTED
+SOURCE: wymaganie użytkownika dotyczące wyglądu listingu
+DECISION: Przed implementacją listingów SKOOP powstaje osobna paczka projektu
+graficznego `SKOOP-COMPANY-LISTING-DESIGN-001`. Obejmuje ona widoki UNIVERSE,
+BASE i IPO, wspólny prawy panel, miniwykres i wykres powiększony, wszystkie stany,
+interakcje, design tokens oraz jednoznaczne mapowanie na kontrakt danych. Projekt
+zostaje przekazany Claude dopiero po wizualnej akceptacji użytkownika.
+RATIONALE: wygląd i ergonomia są częścią produktu i nie mogą być improwizowane
+podczas kodowania. OLD i V3 pozostają źródłami sprawdzonych inspiracji, ale nie
+narzucają starej logiki ani nie zastępują nowego projektu.
+SUPERSEDES: brak; ustanawia dodatkowy gate przed `SKOOP-COMPANY-LISTING-001`.
+AFFECTED VERSION: dokumentacja `DOCS-2026-08-24-02-DRAFT`; runtime bez zmian.
+
 

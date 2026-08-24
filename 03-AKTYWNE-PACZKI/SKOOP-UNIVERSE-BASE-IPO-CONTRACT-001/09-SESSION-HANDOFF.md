@@ -5,7 +5,7 @@ DATE: 2026-08-23
 AI/OPERATOR: Codex
 PACKAGE: SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001
 PRODUCT VERSION: SKOOP FOUNDATION PLACEHOLDER / NO RUNTIME CHANGE
-DOCS VERSION: DOCS-2026-08-24-01
+DOCS VERSION: DOCS-2026-08-24-02-DRAFT
 ```
 
 ## Co wykonano
@@ -18,6 +18,8 @@ DOCS VERSION: DOCS-2026-08-24-01
   startowe, które wymusza odczyt źródeł prawdy i respektowanie gate;
 - udostępniono dokumentację Claude przez `Dareon99/skanerakcji`; instrukcje 10/11
   obsługują teraz zarówno lokalny folder, jak i katalog główny repozytorium;
+- zapisano UD-21: przed kodowaniem listingu powstaje osobna, wizualnie zaakceptowana
+  paczka projektu graficznego przekazywana Claude;
 
 ## Pliki zmienione
 
@@ -39,12 +41,12 @@ Brak. Massive nie był używany. Frozen bazy były otwarte tylko read-only.
 
 ## Decyzje zapisane
 
-UD-07, UD-08 i UD-10–UD-20 jako potwierdzone lub rozstrzygnięte. UD-01–UD-06
-oraz UD-09 oczekują.
+UD-01–UD-06 i UD-09 zaakceptowane 2026-08-24; UD-07, UD-08 i UD-10–UD-21 jako
+potwierdzone lub rozstrzygnięte. Brak otwartej decyzji wymaganej przez ten SPEC.
 
 ## Otwarte ryzyka i braki
 
-Zakres UNIVERSE, start BASE, braki krytyczne, sesja 181 IPO, intraday IPO, waluty
+Brak otwartych decyzji; C-09 jawnie odroczony do późniejszej paczki market-sync.
 i finalne potwierdzenie harmonogramu IPO po starcie sesji. Porządek aktualizacji
 spółek T0–T4 został potwierdzony przez użytkownika. Instrukcja dla Claude jest
 gotowa, ale nie odblokowuje implementacji.
@@ -55,7 +57,7 @@ Nie dotyczy runtime. Paczkę dokumentacyjną można oznaczyć `REJECTED/SUPERSED
 
 ## Dokładnie jeden następny krok
 
-Użytkownik zatwierdza lub koryguje UD-01–UD-06 oraz UD-09.
+Użytkownik zatwierdza lub koryguje finalny logiczny SPEC całej paczki.
 
 ## Czy STAN został zaktualizowany?
 

@@ -4,7 +4,7 @@
 PACKAGE: SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001
 DOCUMENT STATUS: READY FOR READ/AUDIT HANDOFF
 CURRENT AUTHORIZATION: L0 — DOCUMENTATION AND READ-ONLY AUDIT ONLY
-IMPLEMENTATION: BLOCKED — USER DECISIONS PENDING
+IMPLEMENTATION: BLOCKED — FINAL SPEC ACCEPTANCE AND SEPARATE IMPLEMENTATION CONTRACT REQUIRED
 TARGET PRODUCT: C:\SKOOP Skaner wykresów
 LEGACY PRODUCT: C:\Skaner wykresów — READ-ONLY REFERENCE / DO NOT START
 ```
@@ -94,8 +94,8 @@ Aktualnie oczekiwany wynik to:
 
 ```text
 IMPLEMENTATION AUTHORIZED: NO
-PENDING USER DECISIONS: UD-01, UD-02, UD-03, UD-04, UD-05, UD-06, UD-09
-NEXT ALLOWED ACTION: przedstawić użytkownikowi decyzje do zatwierdzenia
+PENDING USER DECISIONS: NONE
+NEXT ALLOWED ACTION: przedstawić użytkownikowi finalny logiczny SPEC do acceptance
 ```
 
 Inny wynik wymaga wskazania dowodu w pliku, a nie założenia.
@@ -155,6 +155,9 @@ Nie są dozwolone:
   SKOOP;
 - TradingView i Investing otrzymują tylko zweryfikowane, prawidłowe linki; jeśli
   bezpośredniego linku brak, można pokazać osobno oznaczone wyszukiwanie.
+- przed implementacją listingu obowiązuje osobna, wizualnie zaakceptowana paczka
+  `SKOOP-COMPANY-LISTING-DESIGN-001`; Claude nie projektuje wyglądu przy okazji
+  kodowania i nie zastępuje brakującego projektu własną interpretacją.
 
 ### 6.3 Udostępnianie aktualnych danych
 
@@ -212,15 +215,17 @@ T4 — wszystkie pozostałe spółki
 Claude ma odczytać pełne pytania i rekomendacje z `04-USER-DECISIONS.md`. Do
 zamknięcia pozostają:
 
-- `UD-01` — pierwszy zakres UNIVERSE;
-- `UD-02` — sposób uruchomienia pierwszej BASE;
-- `UD-03` — traktowanie braków mcap/ADV/ceny;
-- `UD-04` — zachowanie spółki po 180. sesji IPO;
-- `UD-05` — wykres IPO poza BASE;
-- `UD-06` — przechowywanie i prezentacja walut;
-- `UD-09` — finalny harmonogram odświeżeń.
+- `UD-01` — `ACCEPTED 2026-08-24 / OPTION A`: pełny katalog aktywnych spółek z zatwierdzonego zakresu Massive, jawna klasyfikacja, bez automatycznego kopiowania OLD;
+- `UD-02` — `ACCEPTED 2026-08-24 / OPTION A`: pełny UNIVERSE i raport jakości, następnie próbne warianty progów bez członkostwa, akceptacja użytkownika i dopiero pierwsza BASE;
+- `UD-03` — `ACCEPTED 2026-08-24 / OPTION A`: brak ceny, kapitalizacji lub ADV daje `PENDING_DATA`, jawny powód i ponowną ocenę po uzupełnieniu; nigdy zero, fail-open ani automatyczne odrzucenie;
+- `UD-04` — `ACCEPTED 2026-08-24 / OPTION A`: po 180. sesji koniec aktywnego IPO i ponowna ocena BASE; BASE wyłącznie według reguł, bez automatycznego wejścia lub wyjścia;
+- `UD-05` — `ACCEPTED 2026-08-24 / OPTION A`: IPO poza BASE ma sesyjny `1D` i przebieg od debiutu; intraday po kliknięciu T0 lub według T1–T3; IPO w BASE aktualizowane jak BASE;
+- `UD-06` — `ACCEPTED 2026-08-24 / OPTION A`: wartość natywna pozostaje źródłowa, USD jest oddzielnym porównaniem z audytem FX; cena domyślnie natywna, kapitalizacja/obrót/ADV porównywalne w USD; brak FX = `PENDING_FX`;
+- `UD-09` — `ACCEPTED 2026-08-24 / OPTION A WITH GUARDRAILS`: discovery 04:00 ET, 1D per giełda, IPO po starcie USA z opóźnieniem po smoke teście, BASE około 5 min, PRE/POST oddzielnie, T0–T4 i osobna execution path.
 
 Claude nie może zamienić rekomendacji wpisanej w tabeli w decyzję użytkownika.
+Wszystkie wymagane decyzje tej paczki są rozstrzygnięte. Implementacja nadal nie
+jest dozwolona przed końcowym acceptance SPEC i osobnym kontraktem małej paczki.
 
 ## 8. Warunki późniejszego odblokowania implementacji
 

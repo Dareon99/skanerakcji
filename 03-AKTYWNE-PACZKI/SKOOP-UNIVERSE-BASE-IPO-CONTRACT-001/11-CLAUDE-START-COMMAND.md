@@ -57,11 +57,11 @@ Claude powinien zakończyć preflight bez zmian produktu i zgłosić:
 
 ```text
 IMPLEMENTATION AUTHORIZED: NO
-PENDING USER DECISIONS: UD-01, UD-02, UD-03, UD-04, UD-05, UD-06, UD-09
+PENDING USER DECISIONS: NONE
 FILES CHANGED: NONE
 NETWORK USED: NO
 DATABASES WRITTEN: NO
-NEXT ALLOWED ACTION: przedstawić użytkownikowi decyzje do zatwierdzenia
+NEXT ALLOWED ACTION: przedstawić użytkownikowi finalny logiczny SPEC do acceptance
 ```
 
 Jeżeli Claude zaczyna kodowanie przy takim stanie dokumentów, należy przerwać

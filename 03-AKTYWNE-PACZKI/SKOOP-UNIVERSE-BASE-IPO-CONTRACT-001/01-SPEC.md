@@ -115,9 +115,9 @@ Fizyczny schemat i nazwy tabel wymagają późniejszego kontraktu implementacyjn
 | `name` | obowiązkowe docelowo | `MISSING`, nigdy symbol jako fałszywa nazwa | fallback może być tylko jawnie oznaczony |
 | `primary_exchange_code` | wymagane | `UNRESOLVED` | kod kanoniczny, nie dowolny tekst |
 | `mic` | preferowane | `UNRESOLVED` | potrzebne do rozróżnienia instrumentu i linków |
-| `country` / `locale` | wymagane dla pełnego zakresu | `UNRESOLVED` | zakres rynku zależy od UD-01 |
+| `country` / `locale` | wymagane dla pełnego zakresu | `UNRESOLVED` | zakres zgodny z zaakceptowanym UD-01; wartość konkretnego rekordu nadal wymaga źródła |
 | `currency` | obowiązkowe dla wartości finansowych | `UNRESOLVED` | nie wolno zakładać USD |
-| `asset_type` | obowiązkowe | `UNRESOLVED` | warunek zakresu UNIVERSE |
+| `asset_type` | obowiązkowe | `UNRESOLVED` | jawna klasyfikacja wymagana przez zaakceptowane UD-01 |
 | `active` | obowiązkowe | `UNVERIFIED` | delisting nie usuwa historii |
 | `source` | obowiązkowe | rekord niepublikowalny | pochodzenie pola/rekordu |
 | `source_updated_at` | obowiązkowe | `MISSING` | czas źródła, jeśli dostępny |
@@ -156,6 +156,18 @@ Mapowanie pozostaje `TO RECOVER/DECISION REQUIRED`.
 | `last_updated`, `version`, `source` | aktualność i pochodzenie bloku |
 
 Brak wartości prezentujemy jako `—` wraz ze statusem. Nigdy jako `0`.
+
+Zgodnie z zaakceptowanym UD-06:
+
+- wartość źródłowa i kod waluty instrumentu są zachowane bez nadpisania;
+- USD jest osobną wartością porównawczą z `fx_rate`, `fx_source`, `fx_as_of` i
+  wersją metody przeliczenia;
+- cena akcji jest domyślnie pokazywana w walucie notowania;
+- kapitalizacja, obrót i ADV mogą być filtrowane/sortowane po wartości USD;
+- prawy panel udostępnia wartość natywną oraz odpowiednik USD;
+- dane historyczne używają kursu właściwego dla okresu, nie bieżącego kursu;
+- brak właściwego FX oznacza `PENDING_FX`/brak wartości porównawczej, nigdy zero;
+- UI umożliwia przełączenie widoku natywnego i porównawczego.
 
 ### 6.4. BASE
 
@@ -196,6 +208,25 @@ Minimalne powody diagnostyczne:
 Lista progów i formuł nie jest częścią tego SPEC i pozostaje do osobnej decyzji.
 Ocena BASE nie wykonuje sieci i nie zmienia członkostwa UNIVERSE ani historii IPO.
 
+Zgodnie z zaakceptowanym UD-03 brak ceny, kapitalizacji lub ADV daje
+`base_status=PENDING_DATA` wraz z odpowiednim `reason_code`. Taki rekord pozostaje
+w UNIVERSE, nie otrzymuje statusu `QUALIFIED` ani `NOT_QUALIFIED`, trafia do kolejki
+uzupełniania i jest automatycznie oceniany ponownie po opublikowaniu poprawnych
+danych wejściowych. Brak nie może zostać zapisany ani pokazany jako zero.
+
+Pierwsza BASE powstaje zgodnie z zaakceptowanym UD-02:
+
+1. pełny UNIVERSE zostaje pobrany i przechodzi raport kompletności/jakości;
+2. proponowane warianty progów są liczone próbnie dla całego UNIVERSE;
+3. raport pokazuje liczbę `QUALIFIED`, `NOT_QUALIFIED` i `PENDING_DATA` oraz powody;
+4. próbny wynik nie nadaje jeszcze członkostwa BASE i nie uruchamia strategii;
+5. użytkownik porównuje warianty i zatwierdza reguły/progi;
+6. dopiero zaakceptowany ruleset tworzy pierwszą wersję `base_state`.
+
+Nie kopiujemy statusów `base_ok` ani historycznych kwalifikacji r599. Mogą one
+służyć wyłącznie do późniejszego porównania wyników, jeśli zostanie to jawnie
+zlecone w osobnym audycie.
+
 ### 6.5. IPO
 
 Minimalny kontrakt `ipo_state`:
@@ -208,6 +239,26 @@ Minimalny kontrakt `ipo_state`:
 - `sessions_since_debut`;
 - `ipo_window_status`: `IN_WINDOW`, `GRADUATED`, `UNVERIFIED`;
 - `source`, `confidence/status`, `last_updated`, `version`.
+
+Zgodnie z zaakceptowanym UD-04 po zamknięciu 180. właściwej sesji
+`ipo_window_status` przechodzi do `GRADUATED` i spółka znika z aktywnego listingu
+IPO. Następnie uruchamiana jest zwykła ocena BASE na aktualnym rulesecie:
+
+- spółka spełniająca reguły pozostaje albo wchodzi do BASE;
+- spółka niespełniająca reguł pozostaje tylko w UNIVERSE;
+- istniejący status BASE nie jest odbierany wyłącznie z powodu końca IPO;
+- sesja 181 nie nadaje BASE automatycznie.
+
+Zgodnie z zaakceptowanym UD-05 wykresy IPO są aktualizowane następująco:
+
+- każde aktywne IPO otrzymuje po sesji aktualny `1D` i przebieg od debiutu;
+- IPO będące w BASE korzysta z pełnej regularnej aktualizacji BASE;
+- IPO poza BASE nie utrzymuje stale pełnego intraday;
+- kliknięcie spółki uruchamia T0 dla `30m`, `1H`, `2H` i `4H`, a wynik zostaje
+  w cache z jawnym czasem aktualizacji;
+- sygnał, obserwacja lub portfel uruchamia odpowiednio T1–T3 niezależnie od samego
+  statusu IPO;
+- nieaktualny albo niepełny wykres ma jawny status i nie udaje danych bieżących.
 
 Okno IPO jest liczone wyłącznie według kalendarza właściwej giełdy i zamkniętych sesji.
 Nie wolno liczyć dni kalendarzowych. Zachowanie na sesji 181 i relacja z BASE wymagają
@@ -364,6 +415,37 @@ kontrolowany override BASE. Surowych świec, cen i wolumenów nie edytujemy bezp
 błąd rynku oznaczamy i naprawiamy osobnym procesem korekty danych z audytem, aby ręczna
 zmiana nie zafałszowała wskaźników i sygnałów.
 
+### 7.9. Obowiązkowy projekt graficzny przed implementacją listingu
+
+Wygląd listingu nie może powstać jako improwizacja podczas kodowania. Po zamknięciu
+kontraktu danych, a przed paczką implementacyjną listingu, powstaje osobna izolowana
+paczka `SKOOP-COMPANY-LISTING-DESIGN-001`.
+
+Paczka projektu graficznego musi zawierać co najmniej:
+
+- pełny widok desktopowy UNIVERSE, BASE i IPO;
+- wspólny prawy panel spółki otwierany z każdego listingu;
+- miniwykres w tabeli i pełny wykres po powiększeniu;
+- filtry, sortowanie, paginację, wyszukiwanie i ręczną edycję;
+- stany `ładowanie`, `aktualizuję`, `ostatnie poprawne dane`, `brak danych`, `błąd`,
+  `wykres zimny`, `wykres w kolejce`, `wykres gotowy` i `ręczna korekta`;
+- odznaki BASE, IPO, sygnału, obserwacji, portfela i zlecenia oczekującego;
+- prostą prezentację czasu aktualizacji w lokalnej strefie użytkownika;
+- projekt zachowania panelu i tabeli przy różnych szerokościach ekranu;
+- mapowanie każdego elementu widoku na pole lub status z kontraktu danych;
+- design tokens: kolory, typografia, odstępy, rozmiary, stany hover/focus/disabled;
+- specyfikację interakcji i klikalny projekt lub równoważny prototyp;
+- screenshoty PNG oraz pliki źródłowe/HTML umożliwiające Claude jednoznaczne
+  odtworzenie projektu.
+
+OLD r599 i odzyskane wykresy V3 są materiałem referencyjnym dla ergonomii, układu
+i sprawdzonych rozwiązań. Nie oznacza to kopiowania starego wyglądu bez przeglądu ani
+przeniesienia starej logiki biznesowej.
+
+Projekt graficzny wymaga osobnej wizualnej akceptacji użytkownika. Paczka
+implementacyjna listingu nie może powstać, dopóki projekt nie ma statusu `ACCEPTED`,
+testów stanów i kompletnego handoffu dla Claude.
+
 ## 8. Publikacja, aktualność i błędy
 
 - każdy GET czyta ostatnią opublikowaną wersję; zero sieci w GET;
@@ -401,9 +483,9 @@ Nowy rekord najpierw sprawdzamy w tle, a dopiero potem bezpiecznie zastępujemy 
 poprzedni rekord tej spółki. Użytkownik widzi pełne poprzednie dane albo pełne nowe
 dane, nigdy rekord w połowie nadpisany. Nie czekamy na zakończenie całego universe.
 
-### 8.1. Proponowany harmonogram i łańcuch procesów
+### 8.1. Zaakceptowany harmonogram i łańcuch procesów
 
-Harmonogram rozdziela **skład zbioru** od **danych rynkowych i wykresów**. BASE może
+Harmonogram został zaakceptowany w UD-09. Rozdziela **skład zbioru** od **danych rynkowych i wykresów**. BASE może
 mieć świece aktualizowane w sesji co 5 minut, ale jego kanoniczna kwalifikacja nie
 powinna przez to zmieniać się co 5 minut.
 
@@ -411,7 +493,7 @@ powinna przez to zmieniać się co 5 minut.
 |---|---|---|---|
 | `UNIVERSE_DISCOVERY` | 1× dziennie o 04:00 ET; dodatkowo po pierwszym kluczu, ręcznym żądaniu lub recovery | nowe/zmienione/inaktywne instrumenty i wersję universe | BASE, IPO, profil i świece |
 | dzienny snapshot rynku | po potwierdzonym zamknięciu właściwej sesji | ostatnie close, volume, obrót i finalny bar 1D | tożsamość i kryteria BASE |
-| `BASE_INPUT` | natychmiast dla nowych symboli; stale rekordy kolejką; partia 200 | minimalne mcap albo shares; cena/ADV z market.db | pełny profil i wynik BASE |
+| `BASE_INPUT` | natychmiast dla nowych symboli; pozostałe rekordy ciągłą wznawialną kolejką bez biznesowego limitu top-N | minimalne mcap albo shares; cena/ADV z market.db | pełny profil i wynik BASE |
 | `BASE_EVAL` | po nowej wersji universe, finalnym 1D/base_input oraz zmianie progów | nową wersję `base_state`; zero sieci | UNIVERSE i IPO |
 | `IPO_TRACKER` | jedno planowe odświeżenie dziennie **po rozpoczęciu** regularnej sesji USA, z konfigurowalnym opóźnieniem ustalonym po teście źródła; dodatkowo start przy pustej bazie, ręczne recovery i retry po błędzie; licznik sesji po finalnym 1D | `company_ipo`, pierwszą sesję/close i `X/180` | BASE i UNIVERSE |
 | intraday BASE | co 5 min w aktywnej sesji; nocny reconcile luk | świece/payloady BASE | kanoniczny status BASE |
@@ -447,6 +529,15 @@ może zostać ponowiona zgodnie z backoffem i nie powoduje utraty poprzedniego k
 Dokładne opóźnienie po otwarciu USA pozostaje `UNVERIFIED` do smoke testu Massive:
 zadanie ma wystartować dopiero wtedy, gdy źródło publikuje faktycznie handlujące nowe
 IPO, a nie o arbitralnej, zgadniętej minucie.
+
+Guardrails UD-09:
+
+- sesje i finalne `1D` są liczone według kalendarza właściwej giełdy;
+- PRE/POST USA są przechowywane i prezentowane oddzielnie od REGULAR;
+- kolejność T0–T4 działa płynnie, a przerwana praca jest wznawiana;
+- listing nie czeka na pełny przebieg i zawsze pokazuje ostatnie poprawne dane;
+- dokładne odstępy, limity i opóźnienia wymagają smoke testu aktualnego planu Massive;
+- kontrola ceny i wykonanie oczekujących zleceń pozostają osobną ścieżką bezpieczeństwa.
 
 ### 8.2. Dwa niezależne rodzaje priorytetu
 
@@ -606,6 +697,8 @@ ale nie może udawać potwierdzonego sygnału, ponieważ może się zmienić.
 | AC-23 | kliknięcie daje pierwszeństwo bez czyszczenia ostatnich poprawnych danych | test focus, TTL i stanu `Aktualizuję…` PASS |
 | AC-24 | procesor zleceń nie czeka za kolejką profilu | test izolacji execution/profile PASS |
 | AC-25 | kolejka T4 przechodzi przez wszystkie spółki USA od największego do najmniejszego ADV20 bez bloków | test ciągłości, pierwszeństwa, wznowienia i retry PASS |
+| AC-26 | listing jest implementowany wyłącznie z zaakceptowanego projektu graficznego | komplet widoków UNIVERSE/BASE/IPO, panel, stany, tokens, prototyp i wizualne acceptance PASS |
+| AC-27 | pierwsza BASE nie powstaje przed raportem UNIVERSE, próbnym wyliczeniem i akceptacją progów | test braku członkostwa po symulacji; zaakceptowany ruleset tworzy wersję BASE PASS |
 
 ## 10. Ryzyka i skutki uboczne
 
@@ -628,16 +721,17 @@ Frozen archiwa nie są modyfikowane.
 
 ## 12. Braki i bramka
 
-- `DECISION REQUIRED`: zakres rynków i typów instrumentów w pierwszym UNIVERSE;
-- `DECISION REQUIRED`: sposób uruchomienia pierwszej kwalifikacji BASE;
-- `DECISION REQUIRED`: semantyka braku krytycznych danych BASE;
-- `DECISION REQUIRED`: zachowanie spółki IPO na sesji 181;
-- `DECISION REQUIRED`: aktualizacja intraday dla IPO poza BASE;
-- `DECISION REQUIRED`: prezentacja walut natywnych i USD;
+- `ACCEPTED — UD-01`: pełny katalog aktywnych spółek z zatwierdzonego zakresu Massive, z jawną klasyfikacją i bez automatycznego kopiowania OLD;
+- `ACCEPTED — UD-02`: pełny UNIVERSE → raport jakości → próbne warianty BASE bez członkostwa → akceptacja progów → pierwsza BASE;
+- `ACCEPTED — UD-03`: brak ceny, kapitalizacji lub ADV oznacza `PENDING_DATA`, jawny powód, uzupełnienie i ponowną ocenę; nigdy zero/fail-open/reject;
+- `ACCEPTED — UD-04`: po 180. sesji koniec aktywnego IPO i ponowna ocena BASE; członkostwo wyłącznie według reguł, bez automatycznego wejścia;
+- `ACCEPTED — UD-05`: IPO poza BASE ma sesyjny `1D` i przebieg od debiutu; intraday na T0 po kliknięciu lub według T1–T3; IPO w BASE aktualizowane jak BASE;
+- `ACCEPTED — UD-06`: zachowanie wartości natywnej oraz oddzielnej wartości USD z audytem FX; cena natywna, porównanie kapitalizacji/obrotu/ADV w USD; brak FX = `PENDING_FX`;
 - `TO RECOVER`: finalne mapowanie 20 sektorów / 129 branż;
 - `TO RECOVER`: pełny historyczny `listing_scope`;
 - `UNVERIFIED`: aktualne możliwości i limity planu Massive;
 - `UNVERIFIED`: źródło pozwalające pokryć bezpośrednie linki Investing.
 
-**Gate:** implementacja jest zabroniona do czasu zamknięcia `03-CONFLICT-REPORT.md`
-i wszystkich wymaganych pozycji w `04-USER-DECISIONS.md`.
+**Gate:** decyzje i konflikty logiczne tej paczki zamknięto 2026-08-24. Implementacja
+nadal jest zabroniona do czasu końcowego acceptance tego SPEC oraz osobnego,
+dokładnego Implementation Contract dla każdej małej paczki kodowej.

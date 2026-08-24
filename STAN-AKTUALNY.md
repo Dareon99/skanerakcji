@@ -4,7 +4,7 @@
 **Data aktualizacji operacyjnej:** 2026-08-24
 **Wersja kodu:** `2026-08-21-r599`  
 **Status dokumentu:** `CONFIRMED — LEGACY FROZEN / SKOOP CONTRACT IN PROGRESS`  
-**Wersja dokumentacji:** `DOCS-2026-08-24-01`
+**Wersja dokumentacji:** `DOCS-2026-08-24-02-DRAFT`
 
 ## 1. Najważniejszy stan operacyjny
 
@@ -79,10 +79,13 @@ Kolejność programu:
 3. `SKOOP-MASSIVE-ACCESS-001`: lokalny sekret, maskowanie, jeden tani smoke request i weryfikacja bieżących limitów;
 4. `SKOOP-UNIVERSE-IMPORT-001`: pobranie surowego uniwersum instrumentów;
 5. `SKOOP-COMPANY-RESOURCES-001`: kwalifikacja spółek i arkusz/model każdej spółki;
-6. `SKOOP-COMPANY-LISTING-001`: listing, filtrowanie, sortowanie, zarządzanie i edycja;
-7. `SKOOP-CHARTS-V3-INTEGRATION-001`: podpięcie odzyskanych wykresów do spółek;
-8. izolowane paczki nowych mechanizmów skanera;
-9. alerty dopiero po stabilizacji fundamentu, danych, listingu, wykresów i skanera.
+6. `SKOOP-COMPANY-LISTING-DESIGN-001`: projekt graficzny UNIVERSE/BASE/IPO,
+   wspólnego panelu i wykresów; obowiązkowe wizualne acceptance;
+7. `SKOOP-COMPANY-LISTING-001`: implementacja zatwierdzonego projektu, filtrowania,
+   sortowania, zarządzania i edycji;
+8. `SKOOP-CHARTS-V3-INTEGRATION-001`: podpięcie odzyskanych wykresów do spółek;
+9. izolowane paczki nowych mechanizmów skanera;
+10. alerty dopiero po stabilizacji fundamentu, danych, listingu, wykresów i skanera.
 
 Każdy krok jest osobną paczką i kończy się acceptance. `CHARTS-RESTORE-20260821-001` starego produktu jest `SUPERSEDED / CANCELLED` decyzją D-006.
 
@@ -105,10 +108,10 @@ Braki należy oznaczać `UNVERIFIED` albo `TO RECOVER`; nie wolno ich uzupełnia
 
 | Pole | Stan |
 |---|---|
-| Wersja dokumentacji | `DOCS-2026-08-24-01` |
+| Wersja dokumentacji | `DOCS-2026-08-24-02-DRAFT` |
 | Kanoniczna lokalizacja robocza | bieżący lokalny katalog `SYSTEM-PRACY-SKANERA\DOKUMENTACJA` |
 | Zdalny mirror dokumentacji | `https://github.com/Dareon99/skanerakcji`, `main`, pierwszy commit `5218bf2` |
-| Decyzje systemowe | `D-003 ACCEPTED`; `D-006 ACCEPTED`; `D-007 ACCEPTED` |
+| Decyzje systemowe | `D-003 ACCEPTED`; `D-006 ACCEPTED`; `D-007 ACCEPTED`; `D-009–D-016 ACCEPTED` |
 | Protokół ChatGPT/Codex/Claude | zainstalowany |
 | Szablony pełnego workflow | zainstalowane |
 | Automatyczna kontrola systemu/hashów | `FAIL=0 / WARN=2`; wymagane pliki i wszystkie frozen manifesty PASS; WARN: niezatwierdzone zmiany Git i brak remote |
@@ -145,17 +148,17 @@ Każda sesja ma rozpoczynać się od dokumentów wskazanych w `DOKUMENTACJA/READ
 Poprzedni uproszczony ekran OLD jest `SUPERSEDED`. Nie jest już źródłem
 prawdy o tym, co użytkownik otrzymuje po kliknięciu OLD.
 
-## 9. Aktywny kontrakt nowego SKOOP — 2026-08-23
+## 9. Aktywny kontrakt nowego SKOOP — 2026-08-24
 
 | Pole | Stan |
 |---|---|
 | Package ID | `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` |
-| Etap workflow | `SPEC → AUDIT → CONFLICT REPORT` wykonane; `USER DECISIONS` otwarte |
+| Etap workflow | `SPEC → AUDIT → CONFLICT REPORT → USER DECISIONS` wykonane; oczekuje końcowe acceptance SPEC |
 | Implementacja | `BLOCKED / NOT AUTHORIZED` |
 | Massive | nie użyto; brak autoryzacji w tej paczce |
 | Nowa baza SKOOP | nie utworzono |
 | OLD/frozen DB | bez zmian; audit tylko read-only |
-| Główne konflikty | IPO↔BASE, sesja 181, scope UNIVERSE, braki danych BASE |
-| Następny krok | odpowiedzi użytkownika UD-01–UD-06 oraz UD-09 |
+| Główne konflikty | brak konfliktu blokującego logiczny kontrakt; C-09 odroczony do market-sync |
+| Następny krok | końcowe acceptance logicznego SPEC; nadal bez implementacji |
 | Przekazanie do Claude | specyfikacja i polecenie startowe gotowe; read/audit only do czasu akceptacji kontraktu |
 | Dostęp Claude przez GitHub | `READY`; lokalna ścieżka Windows nie jest wymagana do odczytu dokumentacji |

@@ -34,11 +34,13 @@ Dla bieżącego kontraktu przeczytaj szczególnie:
 
 ## Bieżący gate
 
-Obecna paczka ma poziom `L0 — DOCUMENTATION/READ-ONLY`. Implementacja pozostaje
-zablokowana do czasu rozstrzygnięcia `UD-01–UD-06` i `UD-09` oraz jawnej akceptacji
-kompletnego `05-IMPLEMENTATION-CONTRACT.md`.
+Obecna paczka ma poziom `L1 — DOCUMENTATION CLOSURE ONLY`. Wszystkie wymagane
+decyzje zostały rozstrzygnięte, ale implementacja pozostaje zablokowana do końcowego
+acceptance logicznego SPEC i jawnej akceptacji osobnego kontraktu małej paczki.
 
 Bez takiej akceptacji nie zmieniaj kodu, SQL, bazy, runtime ani konfiguracji, nie
 używaj Massive i nie uruchamiaj workerów. Najpierw zwróć raport otwarcia sesji
 określony w `10-CLAUDE-EXECUTION-SPEC.md`.
 
+`UD-01–UD-06` i `UD-09` zostały zaakceptowane 2026-08-24 i zapisane jako
+`D-009` oraz `D-011–D-016`.
