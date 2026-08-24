@@ -5,7 +5,7 @@ DATE: 2026-08-23
 AI/OPERATOR: Codex
 PACKAGE: SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001
 PRODUCT VERSION: SKOOP FOUNDATION PLACEHOLDER / NO RUNTIME CHANGE
-DOCS VERSION: DOCS-2026-08-23-02-DRAFT
+DOCS VERSION: DOCS-2026-08-24-01
 ```
 
 ## Co wykonano
@@ -16,6 +16,8 @@ DOCS VERSION: DOCS-2026-08-23-02-DRAFT
 - przygotowano otwarty conflict report i listę decyzji.
 - przygotowano pełną specyfikację wykonawczą dla Claude oraz krótkie polecenie
   startowe, które wymusza odczyt źródeł prawdy i respektowanie gate;
+- udostępniono dokumentację Claude przez `Dareon99/skanerakcji`; instrukcje 10/11
+  obsługują teraz zarówno lokalny folder, jak i katalog główny repozytorium;
 
 ## Pliki zmienione
 

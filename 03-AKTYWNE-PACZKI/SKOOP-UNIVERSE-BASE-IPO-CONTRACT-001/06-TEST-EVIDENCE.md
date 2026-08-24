@@ -1,7 +1,7 @@
 # TEST EVIDENCE — SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001
 
 ```text
-LAST WRITE TIMESTAMP: 2026-08-23 16:52 CEST
+LAST WRITE TIMESTAMP: 2026-08-24 10:47 CEST
 TEST ENVIRONMENT: Windows / PowerShell / documentation-only validation
 NETWORK USED: NO
 BUSINESS DB MUTATION: NO
@@ -15,7 +15,7 @@ BUSINESS DB MUTATION: NO
 | testy jednostkowe | brak kodu/runtime | `N/A — IMPLEMENTATION BLOCKED` | 0 | nie uruchamiano produktu |
 | testy regresji | brak kodu/runtime | `N/A — IMPLEMENTATION BLOCKED` | 0 | nie uruchamiano produktu |
 | package integrity | obecność 12 plików paczki; parzystość bloków Markdown; istnienie czterech ścieżek wejściowych | `PASS` | 0 | 12/12 plików; 12/12 plików z poprawną parzystością; ścieżki 4/4 |
-| hashes | SHA-256 nowych artefaktów Claude | `PASS` | 0 | `10`: `4027D254...A27E15B`; `11`: `7DAE8240...D07C3D` |
+| hashes | SHA-256 nowych artefaktów Claude po dodaniu trybu GitHub | `PASS` | 0 | `10`: `4368C8B2...CA2392`; `11`: `E5EDE0BD...37D6DC` |
 
 ## Podsumowanie
 

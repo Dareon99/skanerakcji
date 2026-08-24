@@ -1,10 +1,10 @@
 # STAN AKTUALNY — SKANER WYKRESÓW
 
 **Data snapshotu danych:** 2026-08-21  
-**Data aktualizacji operacyjnej:** 2026-08-23  
+**Data aktualizacji operacyjnej:** 2026-08-24
 **Wersja kodu:** `2026-08-21-r599`  
 **Status dokumentu:** `CONFIRMED — LEGACY FROZEN / SKOOP CONTRACT IN PROGRESS`  
-**Wersja dokumentacji:** `DOCS-2026-08-23-02-DRAFT`
+**Wersja dokumentacji:** `DOCS-2026-08-24-01`
 
 ## 1. Najważniejszy stan operacyjny
 
@@ -27,6 +27,7 @@
 | Nowy produkt | `FOUNDATION PLACEHOLDER / DATA CONTRACT IN PROGRESS` | aktywna paczka `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001`; bez Massive, workerów i bazy nowego produktu |
 | Stock Scanner OLD UI | `IMPLEMENTED / READ ONLY` | listing, szczegół spółki i lokalne wykresy z frozen SQLite |
 | Dalsze pobieranie na tym komputerze | `CANCELLED / NOT REQUIRED` | istniejąca próbka zaakceptowana; pełny żywy skaner działa na drugim komputerze |
+| GitHub dokumentacji | `PUBLISHED / CONNECTED` | `Dareon99/skanerakcji`, branch `main`; Claude zaczyna od repozytoryjnego `CLAUDE.md` |
 
 ## 2. Decyzja operacyjna po diagnozie wykresów
 
@@ -104,15 +105,16 @@ Braki należy oznaczać `UNVERIFIED` albo `TO RECOVER`; nie wolno ich uzupełnia
 
 | Pole | Stan |
 |---|---|
-| Wersja dokumentacji | `DOCS-2026-08-23-01-DRAFT` |
-| Kanoniczna lokalizacja | `C:\Skaner wykresów\DOKUMENTACJA` |
+| Wersja dokumentacji | `DOCS-2026-08-24-01` |
+| Kanoniczna lokalizacja robocza | bieżący lokalny katalog `SYSTEM-PRACY-SKANERA\DOKUMENTACJA` |
+| Zdalny mirror dokumentacji | `https://github.com/Dareon99/skanerakcji`, `main`, pierwszy commit `5218bf2` |
 | Decyzje systemowe | `D-003 ACCEPTED`; `D-006 ACCEPTED`; `D-007 ACCEPTED` |
 | Protokół ChatGPT/Codex/Claude | zainstalowany |
 | Szablony pełnego workflow | zainstalowane |
 | Automatyczna kontrola systemu/hashów | `FAIL=0 / WARN=2`; wymagane pliki i wszystkie frozen manifesty PASS; WARN: niezatwierdzone zmiany Git i brak remote |
-| Git w projekcie | `INITIALIZED`, branch `main`, brak pierwszego commitu |
-| Git user.name / user.email | `TO CONFIGURE` |
-| Git remote | brak; `TO CONFIGURE / DECISION REQUIRED` |
+| Git dokumentacji | `INITIALIZED / PUBLISHED`, branch `main`, tracking `origin/main` |
+| Git identity dokumentacji | repo-local `Dareon99` / adres GitHub noreply |
+| Git remote | `origin = https://github.com/Dareon99/skanerakcji.git` |
 | Legacy runtime | `OFF / FROZEN / NOT TO RESTART` |
 | Launcher użytkownika | przekierowany na `C:\SKOOP Skaner wykresów\URUCHOM-SKOOP.bat` |
 | Offline shell | 4/4 testy PASS; HTTP 200; POST 405; external connections 0 |
@@ -156,3 +158,4 @@ prawdy o tym, co użytkownik otrzymuje po kliknięciu OLD.
 | Główne konflikty | IPO↔BASE, sesja 181, scope UNIVERSE, braki danych BASE |
 | Następny krok | odpowiedzi użytkownika UD-01–UD-06 oraz UD-09 |
 | Przekazanie do Claude | specyfikacja i polecenie startowe gotowe; read/audit only do czasu akceptacji kontraktu |
+| Dostęp Claude przez GitHub | `READY`; lokalna ścieżka Windows nie jest wymagana do odczytu dokumentacji |

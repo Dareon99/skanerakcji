@@ -12,11 +12,13 @@ Numer paczki nie zastępuje VERSION. Dokumentacyjny sprint bez zmiany kodu nie m
 
 ## 2. Stan bieżący
 
-- `C:\Skaner wykresów` ma lokalne repozytorium Git na gałęzi `main`;
-- repozytorium jest puste: pliki nie zostały dodane i nie wykonano pierwszego commitu;
-- globalne `user.name` i `user.email` nie są skonfigurowane;
-- zdalne repozytorium nie jest skonfigurowane;
-- pierwsza inicjalizacja nie może automatycznie publikować kodu.
+- dokumentacja ma własne lokalne repozytorium Git na gałęzi `main`;
+- zdalny mirror to `https://github.com/Dareon99/skanerakcji.git`;
+- pierwszy commit dokumentacji: `5218bf2`, opublikowany 2026-08-24;
+- repo-local identity: `Dareon99` i adres GitHub noreply;
+- repozytorium zawiera dokumentację i odzyskane referencje, nie runtime ani bazy;
+- stan Git starego `C:\Skaner wykresów` jest odrębną sprawą i nie upoważnia do
+  uruchomienia lub publikacji kodu OLD.
 
 ## 3. Model gałęzi
 
@@ -68,22 +70,25 @@ Tag tworzy się dopiero po zgodnych hashach i acceptance. Nie tworzy się tagu d
 
 ## 7. Zakres pierwszego commitu
 
-Do pierwszego commitu powinny wejść:
+Pierwszy commit został celowo ograniczony do dokumentacji dostępnej dla Claude:
 
-- bieżący kod `backend` bez cache, backupów, baz i sekretów;
-- `DOKUMENTACJA`;
-- root `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.gitattributes`;
-- niezbędne pliki uruchomieniowe i referencje tekstowe.
+- MASTER, STAN, zasady, decyzje, aktywna paczka i AS-BUILT;
+- repozytoryjny `CLAUDE.md`, `.gitignore` i `.gitattributes`;
+- świadomie dołączone frozen artefakty dokumentacyjne, payloady testowe i
+  screenshoty w `ARCHIWUM`.
 
-Nie powinny wejść: `BACKUP-*`, `DATA-*`, stare paczki instalacyjne, `.venv`, wyniki generowane, bazy, klucze i logi. Wyjątek stanowią świadomie dołączone frozen artefakty w `DOKUMENTACJA/ARCHIWUM`.
+Nie weszły: runtime SKOOP/OLD, `BACKUP-*`, `DATA-*`, `.venv`, produkcyjne bazy,
+klucze i logi. Publikacja kodu aplikacji wymaga osobnej paczki i kontraktu.
 
 ## 8. Zdalne repozytorium
 
-Provider, URL, prywatność, metoda logowania i zasady backupu są `DECISION REQUIRED`. Do czasu decyzji:
-
-- nie dodawać remote;
-- nie wykonywać push;
-- lokalny Git może zapewniać historię, ale nie stanowi kopii zapasowej poza komputerem.
+- provider: GitHub;
+- remote: `origin = https://github.com/Dareon99/skanerakcji.git`;
+- branch: `main`;
+- logowanie: Git Credential Manager konta Windows użytkownika;
+- widoczność repozytorium: `UNVERIFIED` w lokalnym audycie — nie wolno zakładać,
+  że repo jest publiczne lub prywatne bez sprawdzenia ustawień GitHub;
+- każdy kolejny push pozostaje operacją L6 i wymaga jawnego zakresu oraz zgody.
 
 ## 9. Recovery Git
 

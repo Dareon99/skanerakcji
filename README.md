@@ -4,6 +4,8 @@
 > wejściowe w kolejności poniżej. Repozytorium zawiera dokumentację i referencje,
 > nie działający runtime ani produkcyjne bazy.
 
+Repozytorium dokumentacji: `https://github.com/Dareon99/skanerakcji` (`main`).
+
 > **Stan 2026-08-22:** nowy SKOOP jest widokiem domyślnym na porcie 8000. `Stock Scanner OLD` otwiera oryginalny interfejs r599 1:1 na porcie 8001, z zamrożonymi zasobami i twardą blokadą providerów, workerów oraz zapisu (D-008). Dalsze pobieranie danych na tym komputerze pozostaje anulowane decyzją D-007; pełny żywy skaner pozostaje na drugim komputerze.
 
 ## Dokumenty wejściowe
@@ -39,7 +41,8 @@ DOKUMENTACJA/
 │   ├── WERSJONOWANIE-I-GIT.md
 │   └── DOSTEPY-I-BEZPIECZENSTWO.md
 ├── 02-AS-BUILT/
-│   └── INDEX.md
+│   ├── INDEX.md
+│   └── GITHUB-DOCS-PUBLISH-20260824-001-AS-BUILT.md
 ├── 03-AKTYWNE-PACZKI/
 │   └── README.md
 ├── 04-DECYZJE/

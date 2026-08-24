@@ -9,7 +9,7 @@
 | `DOKUMENTACJA` | użytkownik | RW | RW w zakresie zadania | RW w zakresie zadania | docelowo tak | `CANONICAL` |
 | `DOKUMENTACJA/ARCHIWUM` | użytkownik | RW administracyjne | read-only po FREEZE | read-only po FREEZE | tak, jeśli rozmiar/zasady pozwalają | `IMMUTABLE` |
 | Konto/klucz Massive | użytkownik | zarządza | nie ujawniać | nie ujawniać | zakazane | `SECRET` |
-| Repozytorium zdalne | użytkownik | `TO CONFIGURE` | brak gwarantowanego konektora | brak gwarantowanego konektora | `TO CONFIGURE` | `NOT CONNECTED` |
+| `Dareon99/skanerakcji` | użytkownik | zarządza | push tylko po jawnej zgodzie L6 | odczyt przez udostępniony GitHub | dokumentacja bez sekretów i baz | `CONNECTED / PUBLISHED` |
 
 RW oznacza możliwość zapisu, ale nie autoryzuje zmiany produkcyjnej. Autoryzację określa aktywna paczka i Implementation Contract.
 
@@ -54,3 +54,4 @@ Zmiany w dostępie zapisuje się jako wpis w tym dokumencie lub osobnej zaakcept
 | Data | Zasób | Zmiana | Zatwierdził | Dowód |
 |---|---|---|---|---|
 | 2026-08-21 | lokalny projekt | stan początkowy: lokalnie, bez remote Git | użytkownik / recovery | `PROJECT-RECOVERY-001` |
+| 2026-08-24 | dokumentacja SKOOP | pierwszy push `main` do `Dareon99/skanerakcji`; dostęp Claude przez repo | użytkownik | commit `5218bf2`; `02-AS-BUILT/GITHUB-DOCS-PUBLISH-20260824-001-AS-BUILT.md` |
