@@ -4,7 +4,7 @@
 **Data aktualizacji operacyjnej:** 2026-08-24
 **Wersja kodu:** `2026-08-21-r599`  
 **Status dokumentu:** `CONFIRMED — LEGACY FROZEN / SKOOP CONTRACT IN PROGRESS`  
-**Wersja dokumentacji:** `DOCS-2026-08-24-02-DRAFT`
+**Wersja dokumentacji:** `DOCS-2026-08-24-02`
 
 ## 1. Najważniejszy stan operacyjny
 
@@ -108,7 +108,7 @@ Braki należy oznaczać `UNVERIFIED` albo `TO RECOVER`; nie wolno ich uzupełnia
 
 | Pole | Stan |
 |---|---|
-| Wersja dokumentacji | `DOCS-2026-08-24-02-DRAFT` |
+| Wersja dokumentacji | `DOCS-2026-08-24-02` |
 | Kanoniczna lokalizacja robocza | bieżący lokalny katalog `SYSTEM-PRACY-SKANERA\DOKUMENTACJA` |
 | Zdalny mirror dokumentacji | `https://github.com/Dareon99/skanerakcji`, `main`, pierwszy commit `5218bf2` |
 | Decyzje systemowe | `D-003 ACCEPTED`; `D-006 ACCEPTED`; `D-007 ACCEPTED`; `D-009–D-016 ACCEPTED` |
@@ -153,12 +153,12 @@ prawdy o tym, co użytkownik otrzymuje po kliknięciu OLD.
 | Pole | Stan |
 |---|---|
 | Package ID | `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` |
-| Etap workflow | `SPEC → AUDIT → CONFLICT REPORT → USER DECISIONS` wykonane; oczekuje końcowe acceptance SPEC |
-| Implementacja | `BLOCKED / NOT AUTHORIZED` |
+| Etap workflow | `SPEC → AUDIT → CONFLICT REPORT → USER DECISIONS → ACCEPTANCE` wykonane; paczka frozen |
+| Implementacja | `NOT AUTHORIZED`; zaakceptowano wyłącznie kontrakt logiczny |
 | Massive | nie użyto; brak autoryzacji w tej paczce |
 | Nowa baza SKOOP | nie utworzono |
 | OLD/frozen DB | bez zmian; audit tylko read-only |
 | Główne konflikty | brak konfliktu blokującego logiczny kontrakt; C-09 odroczony do market-sync |
-| Następny krok | końcowe acceptance logicznego SPEC; nadal bez implementacji |
-| Przekazanie do Claude | specyfikacja i polecenie startowe gotowe; read/audit only do czasu akceptacji kontraktu |
+| Następny krok | osobna paczka `SKOOP-MASSIVE-ACCESS-001` od SPEC/AUDIT; bez użycia klucza przed kontraktem |
+| Przekazanie do Claude | finalny logiczny SPEC zaakceptowany; Claude nie ma zgody na kodowanie ani Massive |
 | Dostęp Claude przez GitHub | `READY`; lokalna ścieżka Windows nie jest wymagana do odczytu dokumentacji |

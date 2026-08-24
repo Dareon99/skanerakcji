@@ -34,9 +34,10 @@ Dla bieżącego kontraktu przeczytaj szczególnie:
 
 ## Bieżący gate
 
-Obecna paczka ma poziom `L1 — DOCUMENTATION CLOSURE ONLY`. Wszystkie wymagane
-decyzje zostały rozstrzygnięte, ale implementacja pozostaje zablokowana do końcowego
-acceptance logicznego SPEC i jawnej akceptacji osobnego kontraktu małej paczki.
+Kontrakt `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` ma status `ACCEPTED/FROZEN` jako
+logiczny SPEC. Nie istnieje jeszcze aktywna paczka implementacyjna. Kod, SQL, baza,
+runtime, sekret i Massive pozostają nieautoryzowane do jawnej akceptacji osobnego
+kontraktu małej paczki.
 
 Bez takiej akceptacji nie zmieniaj kodu, SQL, bazy, runtime ani konfiguracji, nie
 używaj Massive i nie uruchamiaj workerów. Najpierw zwróć raport otwarcia sesji

@@ -1247,3 +1247,29 @@ nowego SKOOP: nowe mechanizmy nie mogą dziedziczyć logiki OLD automatycznie.
 
 Dowód wykonania: `02-AS-BUILT/OLD-R599-1TO1-FROZEN-AS-BUILT.md`.
 
+## 23. Zaakceptowany kontrakt nowego SKOOP — UNIVERSE / BASE / IPO
+
+**Status 2026-08-24:** `ACCEPTED / FROZEN LOGICAL SPEC`; bez zmiany runtime.
+
+Kanoniczny kontrakt znajduje się w:
+
+`ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001/08-FINAL-AS-BUILT.md`
+
+Najważniejsze obowiązujące decyzje:
+
+- pełny katalog aktywnych spółek z zatwierdzonego zakresu Massive, bez kopiowania
+  mixed universe OLD (`D-009`);
+- osobny projekt graficzny listingów przed kodowaniem (`D-010`);
+- pierwsza BASE dopiero po pełnym UNIVERSE, raporcie i próbnych wariantach progów
+  zaakceptowanych przez użytkownika (`D-011`);
+- braki ceny, kapitalizacji lub ADV oznaczają `PENDING_DATA`, nigdy zero ani
+  fail-open (`D-012`);
+- po 180. sesji kończy się IPO, a BASE nadal zależy wyłącznie od reguł (`D-013`);
+- IPO poza BASE ma aktualny `1D`, a intraday uruchamia T0/T1–T3 (`D-014`);
+- dane zachowują walutę natywną i oddzielne, audytowalne wartości USD (`D-015`);
+- harmonogram działa per giełda, z T0–T4, oddzielnym PRE/POST, płynną publikacją
+  i osobną ścieżką execution (`D-016`).
+
+Akceptacja tego kontraktu nie jest zgodą na implementację. Następny proponowany
+etap to osobna paczka `SKOOP-MASSIVE-ACCESS-001`, rozpoczynana od SPEC/AUDIT i bez
+użycia klucza przed zaakceptowaniem jej Implementation Contract.

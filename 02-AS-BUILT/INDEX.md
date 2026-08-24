@@ -9,5 +9,6 @@ AS-BUILT opisuje faktyczny zaakceptowany stan modułu. Dokument frozen pozostaje
 | Massive Traffic Manager | r599 | `ACCEPTED + ACTIVATED / MANAGER ON` | `../ARCHIWUM/R599-MASSIVE-TRAFFIC-ACTIVATION-001/FINAL-AS-BUILT-SPEC.md` |
 | Główny UI/API wykresów | r599 | `LEGACY PATH / NOT V3-INTEGRATED` | `TO CREATE AFTER AUDIT` |
 | Architektura zasobów | V4.4 final | `RECOVERED` | `../ARCHIWUM/PROJECT-RECOVERY-001/SOURCE-SNAPSHOT/ARCHITEKTURA-ZASOBOW-V4.4-FINAL.txt` |
+| Kontrakt UNIVERSE–BASE–IPO nowego SKOOP | DOCS-2026-08-24-02 | `ACCEPTED / FROZEN LOGICAL SPEC` | `../ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001/08-FINAL-AS-BUILT.md` |
 
 Jeśli dwa AS-BUILT deklarują się jako najnowsze dla tego samego obszaru, obowiązuje STOP i Conflict Report.
