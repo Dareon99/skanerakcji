@@ -73,3 +73,15 @@ commit+push) i Gate A wg handoffu; po PASS Gate A:
 ```text
 IMPLEMENTATION STARTED: NO
 ```
+
+## Lokalny Gate A — 2026-08-24
+
+- KROK 0 opublikowany w repo: commit 258114c, HEAD = origin/main;
+- kod lokalny: 12/12 nowych plików w zaakceptowanym katalogu;
+- py_compile, AST i statyka: PASS;
+- testy offline: 9/9 PASS po poprawce zamykania SQLite i pełnym powtórzeniu gate;
+- secret-scan: 0; prawdziwy klucz nie istnieje i nie był użyty;
+- Massive, Yahoo i inni dostawcy: 0 połączeń;
+- OLD, frozen i placeholder: hashe BEFORE = AFTER;
+- kill switch: ON i trwały; Gate B nadal BLOCKED;
+- pełne dowody: 06-TEST-EVIDENCE.md oraz lokalny sandbox paczki.

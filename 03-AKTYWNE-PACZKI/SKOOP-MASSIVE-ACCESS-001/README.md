@@ -1,9 +1,9 @@
 # SKOOP-MASSIVE-ACCESS-001
 
 ```text
-STATUS: CONTRACT ACCEPTED (REV. 2) — GATE A AUTHORIZED / HANDED OFF TO LOCAL EXECUTOR; GATE B BLOCKED
+STATUS: GATE A PASS — AWAITING USER REVIEW; GATE B BLOCKED
 AREA: PROVIDER-ACCESS (MASSIVE)
-RUNTIME LEVEL: L0 — DOCUMENTATION ONLY
+RUNTIME LEVEL: L3 OFFLINE PACKAGE; NO PROVIDER TRAFFIC
 NETWORK/MASSIVE: NOT USED, NOT AUTHORIZED
 SECRETS: NOT READ, NOT WRITTEN, NOT REQUESTED
 DATABASE WRITE: NONE
@@ -28,6 +28,7 @@ Paczka NIE pobiera danych, NIE używa klucza i NIE uruchamia integracji.
 6. `ANEKS-D-007-DO-WPISANIA.md` — gotowy tekst append-only dla rejestru decyzji;
 7. `10-GATE-A-LOCAL-EXECUTION-HANDOFF.md` — kompletny handoff wykonania lokalnego;
 8. w środowisku Claude: implementacja, klucz, sieć, SQL i UI — zabronione (brak dostępu do ścieżek lokalnych; STOP rule).
+9. 06-TEST-EVIDENCE.md — lokalny Gate A PASS; 9/9 testów; 12/12 plików; Gate B BLOCKED.
 
 ## Wejścia (źródła prawdy)
 
