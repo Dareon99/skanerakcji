@@ -1,0 +1,80 @@
+V3.1B - KONTROLA WYKRESOW RZECZYWISTYCH SPOLEK
+DATA I CZAS: 15.08.2026 14:20:55,52
+
+CEL: reczna walidacja V3 na prawdziwych danych (porownanie z TradingView)
+KOMPILACJA: PASS
+PELNA REGRESJA V3 (exit 0): PASS
+GENERACJA WYKRESOW (exit 0): PASS
+
+ZRODLO DANYCH: MASSIVE ONLY (Yahoo: NIE, Stooq: NIE)
+1D: CANONICAL ANALYSIS (O/C native, H/L z kompletnej sesji 30m RTH)
+1H: CANONICAL REBUILT z 30m (kompletne kubelki z kalendarza NYSE)
+TYLKO BARY FINAL: TAK   OKNO WYKRESU: 120   PRE-ROLL PRODUKCYJNY: 500
+WSKAZNIKI: locked V3 (MACD/RSI/Stochastic)   CECHY: V3_FEATURE_ATOMIC_1
+BEZ SCORINGU, BEZ BUY/SELL, BEZ INTEGRACJI Z PRODUKCJA
+
+DASHBOARD: C:\Skaner wykres¢w\backend\wyniki-v3-1\chart-validation\index.html
+=========================================================
+--- REGRESJA V3 (koncowka) ---
+  PASS  test_missing_hl_candle_has_no_raw_fallback
+  PASS  test_final_bars_only_in_payload
+  PASS  test_no_trading_or_scoring_fields
+  PASS  test_1d_and_1h_generated_independently
+  PASS  test_tool_uses_canonical_paths_in_source
+  PASS  test_feature_values_sourced_from_feature_engine
+  --- v3.tests.test_chart_validation: 13 PASS / 0 FAIL
+
+==================================================
+test_macd                                      35 PASS / 0 FAIL
+test_macd_tv_parity                             8 PASS / 0 FAIL
+test_rsi                                       46 PASS / 0 FAIL
+test_rsi_tv_parity                              7 PASS / 0 FAIL
+test_stochastic                                33 PASS / 0 FAIL
+test_stochastic_tv_parity                       7 PASS / 0 FAIL
+test_market_data_contract                      39 PASS / 0 FAIL
+test_market_data_tv_reference                  14 PASS / 0 FAIL
+test_us_calendar                               17 PASS / 0 FAIL
+test_daily_analysis                            11 PASS / 0 FAIL
+test_warmup                                    11 PASS / 0 FAIL
+test_bucket_scope                               7 PASS / 0 FAIL
+test_preroll_study                             12 PASS / 0 FAIL
+test_feature_engine                            28 PASS / 0 FAIL
+test_chart_validation                          13 PASS / 0 FAIL
+TOTAL: 288 PASS / 0 FAIL
+
+--- GENERACJA WYKRESOW ---
+[config] Folder danych: C:\skaner-dane
+ROZPOZNANIE SPOLEK:
+  Roblox                   -> RBLX   Roblox Corp. Class A           NYSE     RESOLVED_UNIQUE
+  Intuit                   -> INTU   Intuit Inc.                    NASDAQ   RESOLVED_EXACT
+  Nvidia                   -> NVDA   NVIDIA Corporation             NASDAQ   RESOLVED_EXACT
+  Adtran Holdings          -> ADTN   ADTRAN Holdings, Inc.          NASDAQ   RESOLVED_UNIQUE
+  Palantir                 -> PLTR   Palantir Technologies          NYSE     RESOLVED_UNIQUE
+  Oracle                   -> ORCL   Oracle Corporation             NYSE     RESOLVED_EXACT
+  Nebius                   -> NBIS   Nebius Group N.V. Class A      NASDAQ   RESOLVED_UNIQUE
+  Figma                    -> FIG    Figma, Inc. Class A            NYSE     RESOLVED_UNIQUE
+  Lumentum                 -> LITE   Lumentum Holdings Inc. Common  NASDAQ   RESOLVED_UNIQUE
+  Applied Optoelectronics  -> AAOI   Applied Optoelectronics        NASDAQ   RESOLVED_EXACT
+  Zscaler                  -> ZS     Zscaler, Inc.                  NASDAQ   RESOLVED_EXACT
+  Datadog                  -> DDOG   Datadog, Inc. Class A          NASDAQ   RESOLVED_UNIQUE
+  Coherent                 -> COHR   Coherent Corp.                 NYSE     RESOLVED_EXACT
+  Apple                    -> AAPL   Apple Inc.                     NASDAQ   RESOLVED_EXACT
+  Super Micro Computer     -> SMCI   Super Micro Computer, Inc. Com NASDAQ   RESOLVED_UNIQUE
+  Delta Air Lines          -> DAL    Delta Air Lines, Inc.          NYSE     RESOLVED_EXACT
+  Morgan Stanley           -> MS     Morgan Stanley                 NYSE     RESOLVED_EXACT
+  Bank of America          -> BAC    Bank of America                NYSE     RESOLVED_EXACT
+  Novo Nordisk             -> NVO    Novo Nordisk A/S Sponsored ADR NYSE     RESOLVED_UNIQUE
+ROZWIAZANE: 19 / 19
+WYKRESY 1D: 19 / 19   1H: 19 / 19
+KONTROLA SANITY (RBLX/INTU/NVDA/ZS):
+  RBLX 1D: bary=681 okno=120 MACD/RSI/STOCH po warmup: NIE
+  RBLX 1H: bary=637 okno=120 MACD/RSI/STOCH po warmup: TAK
+  INTU 1D: bary=681 okno=120 MACD/RSI/STOCH po warmup: NIE
+  INTU 1H: bary=637 okno=120 MACD/RSI/STOCH po warmup: TAK
+  NVDA 1D: bary=681 okno=120 MACD/RSI/STOCH po warmup: NIE
+  NVDA 1H: bary=365 okno=120 MACD/RSI/STOCH po warmup: TAK
+  ZS 1D: bary=681 okno=120 MACD/RSI/STOCH po warmup: NIE
+  ZS 1H: bary=637 okno=120 MACD/RSI/STOCH po warmup: TAK
+DASHBOARD: C:\Skaner wykresów\backend\wyniki-v3-1\chart-validation\index.html
+=========================================================
+KONIEC RAPORTU

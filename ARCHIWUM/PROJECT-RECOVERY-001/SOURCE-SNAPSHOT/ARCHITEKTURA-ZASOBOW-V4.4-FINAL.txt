@@ -1,0 +1,1132 @@
+# ARCHITEKTURA ZASOBÓW V4 — dokument projektowy
+
+Baza analizy: **r594** (`config.VERSION = 2026-08-16-r594`).
+Zakres: `backend/` (35 500 linii, 108 plików `.py`) — stan faktyczny z kodu, nie z założeń.
+Status: **dokument projektowy. Zero zmian w kodzie.**
+Rewizja: **V4.1** — wprowadzone poprawki z recenzji: rozdzielenie `base_input` od pełnego
+profilu (§J), wymuszony jeden executor zapisu `core.db` (§B), wspólne budżety
+CPU/połączeń/limitu Massive (§C2), bramka wieku ceny w egzekucji (§C1), pochodzenie
+w wersjach zasobów (§D), harmonogram zdarzeniowy zamiast zegarowego (§4), ATTACH jako
+decyzja mierzona, nie założona (§H).
+Rewizja: **V4.2** — usunięte niespójności wewnętrzne: W7 w executorze `core.db`, executor
+zapisu **per plik** (nie tylko dla `core.db`), W0 wpisane do E1 z warunkami wejścia do E2,
+reguła „brak nowej wersji źródła ⇒ konsument zdarzeniowy nie startuje" + deduplikacja
+jobów, W9 zdegradowany do publikowania podpowiedzi.
+Rewizja: **V4.3** — doprecyzowane kontrakty implementacyjne: `company_base_input` jako
+wejście W2, nanoszenie priorytetu **przed** `SELECT`, `input_fingerprint` zamiast
+pojedynczego `source_version_id` w deduplikacji, poprawione dwa warunki wejścia do E2,
+gwarancja commit-then-respond dla portfolio writera.
+Rewizja: **V4.4** — monotoniczny `hint_id` jako kursor podpowiedzi (zamiast `computed_at`),
+nazwane pary w `input_fingerprint`, W13/migracje/checkpointy przez executor pliku.
+**Dokument zamknięty** — kolejne decyzje z pomiarów, nie z rozbudowy dokumentu.
+
+---
+
+## 0. Streszczenie dla decyzji
+
+Trzy rzeczy w obecnym systemie łamią zasadę „proces → własny zasób → publikacja":
+
+1. **Tabela `universe` jest wspólnym brudnopisem 11 procesów.** Trzyma jednocześnie
+   tożsamość instrumentu, wynik oceny BASE, flagi IPO, dane profilowe (nazwa, branża,
+   giełda, kapitalizacja) i dane wykresowe (`spark_d`, `first_close`). Każdy z tych
+   zbiorów ma innego właściciela i inną częstotliwość odświeżania.
+2. **Jeden plik `scanner.db` obsługuje ~30 tabel i ~10 klas piszących procesów.**
+   SQLite ma jeden writer lock na plik. `busy_timeout=60000` i `_write_retry(tries=6)`
+   w `db.py` istnieją wyłącznie dlatego, że skaner blokuje zapis transakcji portfela.
+   To nie jest hardening — to objaw.
+3. **Trzy niezależne mechanizmy współbieżności działają jednocześnie**:
+   `core/coordinator.py` (nazwane blokady), `core/resources.py` (semafory HEAVY/MEDIUM)
+   i `core/pipeline.py` (job registry + własny `_HEAVY_LOCK`). Nie znają się wzajemnie.
+   `resources.medium.__enter__` aktywnie czeka w pętli `while _STATE["heavy_owner"]`,
+   więc **wzbogacanie profili czeka na koniec skanu** — dokładnie ta zależność, którą
+   chcemy usunąć.
+
+Rekomendacja w jednym zdaniu: **podział baz po WŁAŚCICIELU ZAPISU (5 plików), jeden
+scheduler zamiast trzech, wskaźnik `resource_current` per zasób, i wyprowadzenie
+profilu spółki z `universe` do nowego `companies.db`.**
+
+---
+
+## 1. Diagram modułów (stan docelowy)
+
+```
+                        ŹRÓDŁA ZEWNĘTRZNE
+        Massive (bars, reference, financials, dividends, news, IPO cal)
+        Yahoo (fallback: bars, insiderzy, ratingi, kalendarz wyników)
+                                 │
+   ┌──────────────┬──────────────┼──────────────┬──────────────┐
+   │              │              │              │              │
+┌──▼───────┐ ┌────▼─────┐ ┌──────▼──────┐ ┌─────▼─────┐ ┌──────▼─────┐
+│ UNIVERSE │ │  MARKET  │ │   COMPANY   │ │   NEWS    │ │    IPO     │
+│  (W1)    │ │DATA (W3) │ │PROFILE (W8) │ │  (W10)    │ │   (W11)    │
+└──┬───────┘ └────┬─────┘ └──────┬──────┘ └─────┬─────┘ └──────┬─────┘
+   │              │              │              │              │
+┌──▼───────┐ ┌────▼─────┐ ┌──────▼───────────────▼──────────────▼─────┐
+│ core.db  │ │market.db │ │              companies.db  ·  news.db     │
+│ universe │ │market_   │ │  company_identity / financials / dividends │
+│ _symbols │ │bars      │ │  ownership / ipo / shares_float / profile_ │
+│ base_    │ │data_sync │ │  state                                    │
+│ state    │ │_state    │ └───────────────────────────────────────────┘
+└──┬───────┘ └────┬─────┘
+   │ (BASE_OK)    │ (świece)          ODCZYT, nigdy zapis ▲
+┌──▼──────────────▼──┐                                    │
+│  BASE_EVAL (W2)    │  ← zero sieci                      │
+└──┬─────────────────┘                                    │
+┌──▼─────────────────┐                                    │
+│ TECHNICAL_SCAN(W4) │  ← tylko market.db → cechy         │
+└──┬─────────────────┘                                    │
+   ├──────────────┬──────────────┐                        │
+┌──▼──────┐ ┌─────▼─────┐ ┌──────▼──────┐                 │
+│CYCLES1D │ │ CYCLES 1H │ │ SIGNALS/    │─────────────────┘
+│ (W5)    │ │  (W6)     │ │ STRATEGY(W7)│  czyta profil, nie pobiera
+└─────────┘ └───────────┘ └──────┬──────┘
+                                 │
+                        ┌────────▼─────────┐      ┌──────────────────┐
+                        │ EXECUTION (W12)  │◄────►│  portfolio.db    │
+                        │ order processor  │      │ pf_trades, cards │
+                        │ price warmer     │      │ portfolio_equity │
+                        └──────────────────┘      └──────────────────┘
+                     NIGDY nie czeka na W1–W11 i nigdy ich nie blokuje
+
+        ┌───────────────────────────────────────────────────────────┐
+        │  API / FRONTEND — wyłącznie ODCZYT gotowych zasobów        │
+        │  + JEDEN zapis: POST /focus (co user ma otwarte)           │
+        └───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Diagram przepływu danych i zależności read/write
+
+Reguła nadrzędna: **jeden zasób = jeden proces piszący.** Wszystkie inne strzałki to odczyt.
+
+| Zasób | Właściciel zapisu (jedyny) | Czyta | Nie wolno mu |
+|---|---|---|---|
+| `universe_symbols` (tożsamość, aktywność) | W1 UNIVERSE_DISCOVERY | wszyscy | liczyć BASE, pobierać profilu, newsów |
+| `base_state` (base_ok, base_reason) | W2 BASE_EVAL | W4, W7, W8, W10 (priorytety) | sieć, pobieranie świec |
+| `market_bars`, `data_sync_state` | W3 MARKET_SYNC | W2, W4, W5, W6, W12, API wykresów | liczyć wskaźników, pisać do core.db |
+| `feature_snapshots`, `snapshots` | W4 TECHNICAL_SCAN | W5, W6, W7 | pobierać świec, uzupełniać nazw/mcap, synchronizować IPO |
+| `cycles_active/done/hist` | W5 CYCLES_1D | W7, API | przeliczać cech, pisać do snapshots |
+| `cycles1h_*` | W6 CYCLES_1H | W7, API | jak wyżej |
+| `signals`, `shortlist_*` | W7 STRATEGY_EVAL | API | pobierać czegokolwiek z sieci |
+| `company_*` (profil) | W8 COMPANY_PROFILE | API, W7, W10 | pisać do `universe_symbols`, `snapshots` |
+| `company_ipo` | W11 IPO_TRACKER | API, W8, W2 (grace) | `UPDATE universe SET ipo=0` |
+| `news`, `news_state` | W10 NEWS | API, W7 | blokować request frontendu |
+| `pf_trades`, `card_*`, `portfolio_equity` | W12 EXECUTION + akcje użytkownika | API | czekać na jakikolwiek worker analityczny |
+| `resource_versions`, `resource_current` | ten worker, który buduje daną wersję | wszyscy | — |
+
+Zależności są **jednokierunkowe i bezwarunkowe**: jeśli zasób źródłowy jest stary,
+konsument liczy na starym i **oznacza wynik znacznikiem `source_version_id`**.
+Nigdy nie czeka.
+
+---
+
+## 3. Odpowiedzi na pytania A–I
+
+### A. Granice odpowiedzialności — co obecnie miesza role
+
+#### A1. `universe_builder.build_universe()` — 5 odpowiedzialności w jednej funkcji
+
+Fakty z kodu (`universe_builder.py`, 529 linii):
+
+- odkrywanie symboli: `load_seed()` + `poly.list_us_common_stocks()` + `poly.grouped_daily()` (3 źródła, dedup ADR po znormalizowanej nazwie),
+- pobieranie danych rynkowych: `poly.build_us_daily(us_syms, days=75)` oraz `ds.fetch_many()` dla zagranicy,
+- ocena BASE: cena / ADV / martwe sesje / kapitalizacja z `db.get_logic()`,
+- **sieć per spółka po dane profilowe**: `ds.fetch_market_cap(sym)` i `ds.fetch_info(sym).get("sector")` w środku pętli `evaluate()`,
+- kalendarz IPO: `poly.historic_ipos(18)` + heurystyka debiutu z długości historii,
+- publikacja snapshotów: `PL.new_snapshot("universe")` **i dodatkowo `PL.new_snapshot("base")`** (linie ~472–480),
+- na koniec `heal_universe()` — kolejny przebieg odkrywania z własnym zapisem.
+
+| co zostaje | co wydzielić | zasób produkowany |
+|---|---|---|
+| odkrywanie symboli, aktywność instrumentu, giełda, dedup ADR | ocena BASE → W2 (już istnieje `reevaluate_base()`, bez sieci) | `universe_symbols` + wersja `universe` |
+| — | `fetch_market_cap` / `fetch_info(sector)` → W8 | — |
+| — | kalendarz i daty debiutu → W11 | — |
+| — | `build_us_daily` (pobieranie świec) → W3 | — |
+| — | zamykanie snapshotu `base` → **wyłącznie W2** | — |
+| — | `heal_universe` → to jest po prostu drugi przebieg W1, nie osobna funkcja | — |
+
+**Konsekwencja obecnego stanu:** BASE ma dwóch producentów (`build_universe` inline oraz
+`pipeline._job_base`), dlatego `pipeline.snapshot_map()["chain_consistent"]` potrafi być
+`False` bez żadnego błędu — i dlatego istnieje warstwa łat r522/r525/r529.
+
+#### A2. Tabela `universe` — 11 pisarzy
+
+| pisarz | co zapisuje |
+|---|---|
+| `db.save_universe` (z `build_universe`, `reevaluate_base`, `heal_universe`, `universe_rebuild`) | wszystko |
+| `core/universe_service.update_incremental` | `base_ok=0` dla symboli znikających z reference (**ocena BASE robiona przez moduł listy!**) |
+| `core/reference_enrich` (2 miejsca) | name, sector, exchange, market_cap + `UPDATE snapshots` |
+| `core/ipo_worker._fill_info` / `_fill_charts` | name, sector, exchange, market_cap, `spark_d`, `spark_ts`, `first_close` |
+| `scanner_worker` (5 miejsc: linie ~526, 542, 568, 788, 978–980, 1064) | `ipo`, `debut_date`, `name`, `market_cap` |
+| `api.py` `/ipo_refresh` (linia 3802) | **`UPDATE universe SET ipo=0 WHERE ipo=1`** przed zapisem nowych — przerwanie w środku = utrata wszystkich flag IPO |
+| `api.py` (linie 3954, 3984, 4009) | `first_close`, `market_cap`, `sector`, `name`, `spark_d` — w ścieżce requestu |
+| `db.update_market_cap` | market_cap w `universe` **i** `snapshots` |
+| `db.rename_sector` / `delete_sector` | sector w 3 tabelach |
+| `core/universe_manifest.repair_exchanges` | exchange → `''` |
+| `core/population.repair_base_reasons` | base_reason |
+
+To jest źródło całej klasy błędów „coś nadpisało dane". Docelowo `universe_symbols`
+ma **jednego** pisarza (W1); `base_state` drugiego (W2); wszystko pozostałe idzie do
+`companies.db`.
+
+#### A3. Tabela `snapshots` — wynik techniczny zanieczyszczony profilem
+
+`snapshots` (schemat w `db.py:211`) trzyma `name, sector, exchange, market_cap` obok
+`rsi_d, macd_*, stoch_d, score`. Piszą do niej: `scanner_worker`, `reference_enrich`,
+`db.set_override`, `db.rename_sector`, `db.update_market_cap`.
+
+Jednocześnie `snapshots` jest na whiteliście `_RECOVERABLE_DERIVED_TABLES` w `db.py:20`
+— czyli tabela, którą wolno automatycznie usunąć przy naprawie bazy. **Trzymamy dane
+profilowe w tabeli oznaczonej jako „w 100% odbudowywalny cache".**
+
+Zostaje: klucz `symbol` + metryki techniczne + `score` + `updated_at`.
+Wydzielić: wszystkie kolumny opisowe (UI łączy je po `symbol` z `companies.db`).
+
+#### A4. `scanner_worker.scan_once()` (2222 linie) — pipeline w jednym pliku
+
+Miesza: synchronizację kalendarza IPO (`_ipo_calendar_sync`), weryfikację debiutów
+(`UPDATE universe SET ipo=0`), pobieranie świec, liczenie cech, zapis `snapshots`,
+generowanie sygnałów, wywołanie cykli 1D, „dogrywkę zaległych" i dociąganie nazw
+oraz kapitalizacji z sieci (linie 978–998, 1064).
+
+Zostaje: **wyłącznie** odczyt `market.db` → cechy → `feature_snapshots` + `snapshots`
+→ zamknięcie wersji `technical`. Wszystko inne wychodzi do W8/W11/W5.
+
+#### A5. Cykle — dwóch producentów tej samej warstwy
+
+`pipeline._job_technical` po skanie sam tworzy snapshot `cycles_1d`
+(z `meta={"placeholder": (n1d == 0)}`) i awaryjny snapshot `cycles_1h`, a jednocześnie
+istnieją osobne joby `_job_cycles1d` / `_job_cycles1h`, a `cycles1h.py` publikuje własny
+snapshot i własny wskaźnik `current_snapshot_id()`. Stąd cała logika `_is_placeholder`,
+`_c1d_has_result` i „READINESS liczona pozytywnie" w `pipeline_state()`.
+
+Docelowo: W4 kończy się na warstwie `technical`. Cykle to W5 i W6, każdy z własną
+wersją i własnym wskaźnikiem. **Snapshot-wypełniacz przestaje istnieć jako pojęcie.**
+
+#### A6. Trzy schedulery
+
+| moduł | mechanizm | problem |
+|---|---|---|
+| `core/coordinator.py` | 7 nazwanych `threading.Lock` + rejestr `_ACTIVE` | nie wie o pipeline |
+| `core/resources.py` | `_HEAVY = Lock()`, `_MEDIUM = Semaphore(2)`, budżet wątków | `medium.__enter__` czeka w `while heavy_owner: sleep(0.5)` — **zależność blokująca** |
+| `core/pipeline.py` | `_HEAVY_LOCK` + `pipeline_jobs` + watchdog 45 s | jedyny właściwy, ale obchodzony przez API |
+
+`api.py` startuje `threading.Thread` dla ciężkich zadań w co najmniej 8 miejscach
+(`/universe/build`, `/universe/update?full`, `/universe_rebuild`, `/universe/rebuild_from_store`,
+`/market/sync`, `/market/repair`, przeliczanie cykli 1D i 1H) — poza rejestrem jobów,
+więc ochrona przed duplikatem jest częściowa.
+
+#### A7. Odczyt, który uruchamia zapis i sieć
+
+- `db.pf_trades()` (linia ~379 komentarza r379) startuje wątek `reference_enrich.enrich_symbols()`
+  **w środku odczytu listy pozycji portfela**.
+- `core/fundamentals.get_map(symbols, kick=True)` — każdy request `/fundamentals` odpala
+  wątek wzbogacania z siecią.
+- `api.py:4375` — kolejny wątek startowany z requestu.
+
+Docelowo: odczyt nigdy nie startuje pobierania. Request może **zgłosić potrzebę**
+(1-wierszowy upsert do kolejki), nic więcej.
+
+---
+
+### B. Bazy danych — ocena i rekomendacja
+
+Stan faktyczny: **dwa pliki**, oba WAL, oba w `DATA_DIR` (`..\skaner-dane`):
+
+- `scanner.db` — ~30 tabel: `universe`, `snapshots`, `signals`, `portfolios`, `pf_trades`,
+  `auto_trades`, `news`, `fundamentals`, `cycles_*`, `cycles1h_*`, `pipeline_jobs`,
+  `pipeline_snapshots`, `snapshot_members`, `scan_runs`, `feature_snapshots`, `chatgpt_*`,
+  `nonstop_*`, `shadow_*`, `shortlist_*`, `industry_snap`, `card_*`, `retest_legs`,
+  `bottom_watch`, `portfolio_runs`, `portfolio_equity_snapshots`, `settings`, `sectors`,
+  `overrides`, `custom_stocks`, `deleted`, `rehab`, `ipo_enrich_try`, `signal_cooldown`.
+  Połączenie: nowe per wywołanie `get_conn()`, `busy_timeout=60000`, `_write_retry`.
+- `market.db` — `market_bars`, `data_sync_state`, `sync_log`, `api_usage`.
+  Połączenie: thread-local, trwałe, `synchronous=NORMAL`, `cache_size=-40000`, **bez retry**.
+
+Ocena po kryteriach z polecenia:
+
+| kryterium | ocena stanu obecnego |
+|---|---|
+| **writer lock** | Krytyczne. Jeden lock na `scanner.db` dla ~10 klas pisarzy. Komentarze w `db.py` mówią wprost: „w trakcie skanu worker trzyma bazę zajętą dłużej niż 15 s — kupno/sprzedaż odbijało się błędem database is locked" (r352). Zapis 400-wierszowymi porcjami (r353) to obejście tego samego problemu. |
+| **WAL** | Włączony w obu plikach — czytelnicy nie blokują pisarza. Nie rozwiązuje problemu **pisarz vs pisarz**, a to jest nasz problem. |
+| **wielkość** | `market.db` rośnie liniowo z liczbą świec (dominujący rozmiar). `scanner.db` mały, ale najgorętszy. Rozdzielenie ich było słuszne i już działa — to dowód, że wzorzec się sprawdza. |
+| **częstotliwość zapisu** | Skrajnie różna: świece co 5 min ×6000 symboli; profil raz na 1–7 dni; transakcje sporadycznie ale **synchronicznie z użytkownikiem**; `settings` przy każdym etapie pipeline'u. Trzymanie tego w jednym pliku wymusza kompromis, na którym traci ścieżka najbardziej wrażliwa (BUY/SELL). |
+| **liczba równoległych procesów** | Jeden proces, wiele wątków: pipeline watchdog, skaner, ipo-worker, reference_enrich, fundamentals, chatgpt_worker, nonstop, price-warmer, wątki ad-hoc z API. |
+| **backup** | Dziś nierozdzielny: kopia to cały `scanner.db`. Nie da się zrobić częstej kopii samego rejestru transakcji bez kopiowania całego cache. |
+| **ryzyko korupcji** | Najpoważniejszy argument. `db._recover_corrupt_db()` w ostateczności **odkłada cały plik `scanner.db` na bok i startuje z czystą bazą.** Razem z cache'em ginie rejestr transakcji, karty inwestycyjne, ustawienia i historia nauki. |
+| **prostota utrzymania** | Jeden plik jest prostszy tylko dopóki ma jednego pisarza. Przy 11 pisarzach `universe` prostota jest pozorna — koszt przeniósł się do 6 modułów łatających skutki. |
+
+#### Rekomendacja: 5 plików, podział po WŁAŚCICIELU ZAPISU
+
+Nie po temacie. Po tym, kto pisze i jak często.
+
+| plik | zawartość | pisarze | cadence zapisu | rola |
+|---|---|---|---|---|
+| `market.db` | `market_bars`, `data_sync_state`, `sync_log`, `api_usage` | **W3** | ciągła, duży wolumen | bez zmian (już poprawny) |
+| `core.db` (dzisiejszy `scanner.db` po odchudzeniu) | `universe_symbols`, `base_state`, `snapshots`, `feature_snapshots`, `scan_runs`, `cycles_*`, `cycles1h_*`, `signals`, `shortlist_*`, `industry_snap`, `chatgpt_*`, `nonstop_*`, `shadow_*`, `bottom_watch`, `retest_legs`, `priority_hints`, `resource_versions`, `resource_current`, `pipeline_jobs`, `settings`, `sectors`, `overrides`, `custom_stocks`, `deleted`, `rehab` | **core writer**: W1, W2, W4, W5, W6, W7, W9 | seriami | łańcuch pipeline'u |
+| `companies.db` | `company_base_input`, `company_identity`, `company_classification`, `company_size` (mcap/shares/float/ADV), `company_ipo`, `company_dividends`, `company_financials`, `company_ownership`, `company_calendar`, `profile_state`, `profile_staging` | **companies writer**: W0, W8, W11 | rozproszona, wolna, z siecią | profil — najwolniejsze i najbardziej awaryjne źródła, w osobnym pliku |
+| `news.db` | `news`, `news_state`, `news_source_log` | **news writer**: W10 | rozproszona | newsy nigdy nie blokują skanu |
+| `portfolio.db` | `portfolios`, `pf_trades`, `auto_trades`, `portfolio_runs`, `portfolio_equity_snapshots`, `card_entry`, `card_timeline`, `card_exit`, `card_state`, `learning` | **portfolio writer**: W12 + akcje użytkownika | rzadka, ale synchroniczna z użytkownikiem | **dane transakcyjne — własny plik, własny backup, wyłączone z autonaprawy** |
+
+**Czego świadomie NIE rozdzielamy:**
+
+- `signals.db` osobno — sygnały piszą tylko W7, w tym samym łańcuchu co cykle, i są
+  czytane razem z nimi. Osobny plik dałby tylko koszt bez korzyści.
+- osobne bazy per strategia (`chatgpt.db`, `nonstop.db`) — to konsumenci, zapisują
+  lekko i zawsze po zakończeniu warstwy technicznej.
+- `features.db` — `feature_snapshots` żyją i umierają razem z `scan_runs` (`_prune(keep=6)`).
+
+**Zasada twarda: żadnej transakcji przez granicę plików.** W WAL SQLite nie daje
+atomowego commitu na wielu ATTACH-owanych bazach. Odczyt cross-DB robimy przez
+`ATTACH ... AS x` w trybie tylko-czytającym (np. raport zdrowia, join profilu do listy),
+zapis — nigdy. To dodatkowo wymusza rozdzielność zasobów, o którą prosisz.
+
+**Ustawienia per plik:** `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout` —
+`portfolio.db`: 5000 (ma być szybki albo jawnie odmówić, nie wisieć 60 s),
+pozostałe: 30000. `wal_autocheckpoint` domyślny; jawny `PRAGMA wal_checkpoint(TRUNCATE)`
+w W13 JANITOR raz na dobę.
+
+#### Executor zapisu per plik (V4.2)
+
+Writer lock w SQLite obowiązuje **na plik**, nie na tabelę. Rozdzielenie tabel usuwa
+nadpisywanie odpowiedzialności, ale nie usuwa rywalizacji o zapis w obrębie jednego
+pliku — a `companies.db` ma trzech pisarzy (W0, W8, W11), `core.db` siedmiu.
+„Sekwencyjnie" jest opisem, nie gwarancją.
+
+Dlatego **każdy plik ma własny lekki executor zapisu**:
+
+| executor | pliki | joby, które przez niego publikują |
+|---|---|---|
+| core writer | `core.db` | W1, W2, W4, W5, W6, W7, W9 |
+| market writer | `market.db` | W3 |
+| companies writer | `companies.db` | W0, W8, W11 |
+| news writer | `news.db` | W10 |
+| portfolio writer | `portfolio.db` | W12 + akcje użytkownika |
+
+Mechanizm, identyczny dla wszystkich pięciu:
+
+- jedna kolejka `<plik>_write_queue` i **jeden wątek-executor**, który jako jedyny
+  w procesie otwiera połączenie zapisujące do tego pliku,
+- joby nie zapisują same — zgłaszają gotową jednostkę pracy do executora,
+- każdy inny moduł dostaje połączenie **read-only** (`file:core.db?mode=ro`), więc próba
+  zapisu spoza executora kończy się błędem natychmiast, a nie za pół roku jako wyścig.
+
+**Jeden executor ≠ jeden worker.** Pobieranie z sieci, liczenie cech, walidacja profilu
+i składanie świec działają nadal równolegle. Serializowana jest wyłącznie krótka
+transakcja publikująca wynik. W5 i W6 liczą obok siebie i publikują przez tę samą
+kolejkę. W7 może być wyzwalany co 15 minut, ale jego zapis do `signals` i `shortlist_*`
+wchodzi do kolejki `core.db` — nie jest „workerem równoległym", bo pisze do `core.db`.
+
+**W9 nie jest pisarzem cudzych baz (V4.2).** Zamiast aktualizować `profile_state.priority`
+w `companies.db` i `news_state.priority` w `news.db` — co czyniłoby go pisarzem trzech
+plików — W9 publikuje `priority_hints` w `core.db` (symbol, tier, powody, `computed_at`).
+W8 i W10 czytają podpowiedzi i nanoszą je **we własnym pliku**. Zasada jednego
+właściciela zostaje nietknięta, a priorytet nadal jest liczony w jednym miejscu.
+
+**Kolejność jest tu istotna (V4.3).** Nanoszenie priorytetu dopiero w transakcji dla
+**już wybranego** rekordu jest błędem: spółka z zapisanym niskim priorytetem nigdy nie
+trafiłaby do `SELECT`, więc jej podpowiedź nigdy by się nie zastosowała. Poprawny cykl
+W8/W10, raz na ~60 s:
+
+```
+1. SELECT * FROM priority_hints WHERE hint_id > :last_hint_id
+   ORDER BY hint_id LIMIT :batch                        (RO z core.db)
+2. własnym executorem: UPDATE profile_state/news_state SET priority=...   ← OSOBNA,
+   krótka transakcja, nie dołączana do transakcji publikującej wynik pobrania
+3. :last_hint_id = MAX(hint_id) z partii
+4. dopiero teraz: SELECT ... WHERE next_refresh_at <= now ORDER BY priority DESC
+```
+
+**Kursorem jest monotoniczny `hint_id`, nie `computed_at` (V4.4).** Przy limicie partii
+wiele podpowiedzi może mieć identyczny timestamp — `WHERE computed_at > :cursor`
+z przesunięciem do `MAX(computed_at)` cicho pominąłby resztę rekordów z tą samą
+sekundą. Dlatego `priority_hints` ma `hint_id INTEGER PRIMARY KEY AUTOINCREMENT`,
+a `computed_at` służy tylko diagnostyce i TTL. (Wariant zastępczy, jeśli `hint_id` nie
+wchodzi w grę: krotka kursora `(computed_at, symbol) > (:cursor_time, :cursor_symbol)`
+z `ORDER BY computed_at, symbol` — nigdy sam timestamp.)
+
+**Portfolio writer: odpowiedź po commicie, nie po przyjęciu do kolejki (V4.3).**
+Endpoint BUY/SELL może korzystać z kolejki zapisu, ale **zwraca wynik dopiero po
+commicie transakcji**. Zadanie w pamięci executora nie jest zleceniem przyjętym —
+inaczej pad procesu między odpowiedzią a zapisem daje użytkownikowi potwierdzenie
+transakcji, której nie ma. `busy_timeout=5000` dla tego pliku znaczy: szybka odpowiedź
+albo jawna odmowa, nigdy ciche wiszenie. Retry klienta jest bezpieczny — chroni go
+istniejący `ux_pf_idempotency`.
+
+---
+
+### C. Lista workerów
+
+Legenda: **R** = czyta, **W** = pisze, **∥** = może działać równolegle z innymi.
+
+| # | worker | R | W | częstotliwość | ∥ | czego nie może blokować |
+|---|---|---|---|---|---|---|
+| **W0** | BASE_INPUT (minimalne wzbogacenie kandydatów — §J) | `universe_symbols`, Massive reference, `market.db` (cena) | `companies.db`: `company_base_input` (mcap **albo** shares) | po W1 oraz dla nowych symboli; partia 200 | tak (własny plik) | nie może blokować W2 — brak danych to `MISSING_MARKET_CAP`, nie wstrzymanie |
+| **W1** | UNIVERSE_DISCOVERY | Massive reference, grouped-daily, seeds | `core.db`: `universe_symbols` + wersja `universe` | 1×/dobę 04:00 ET + na żądanie + po dodaniu klucza | nie z W2/W4 | nic; sam nie czeka na profil ani newsy |
+| **W2** | BASE_EVAL | `market.db` (1d), `universe_symbols`, `settings.logic`, **`companies.db.company_base_input`** (mcap/shares, RO) | `base_state` + wersja `base` | po W1 i po zmianie progów; **zero sieci** | nie z W4 | nie może czekać na profil (brak mcap ⇒ `MISSING_MARKET_CAP`, nie blokada) |
+| **W3** | MARKET_SYNC | Massive/Yahoo | `market.db` | inkrementalnie co 5 min w sesji dla BASE_OK; nocny reconcile luk | tak (własny plik) | nigdy wykresów ani egzekucji |
+| **W4** | TECHNICAL_SCAN | `market.db`, `base_state` | `snapshots`, `feature_snapshots`, `scan_runs`, wersja `technical` | po W2 / co 20 h / na żądanie | nie z W1/W2/W5/W6 | nie wolno mu pisać do `universe_symbols` ani sięgać do sieci |
+| **W5** | CYCLES_1D | wersja `technical` | `cycles_*`, wersja `cycles_1d` | po W4 | nie z W6 | — |
+| **W6** | CYCLES_1H | wersja `technical` | `cycles1h_*`, wersja `cycles_1h` | po W4 | nie z W5 | — |
+| **W7** | STRATEGY_EVAL (sygnały, shortlisty, hybryda, NON STOP, ChatGPT) | wersje `technical` + `cycles_*`, profil (co jest), news (co jest) | `signals`, `shortlist_*`, `chatgpt_*`, `nonstop_*` | po W5/W6 + co 15 min w sesji | tak | musi działać na ostatniej poprawnej wersji przy braku świeżej |
+| **W8** | COMPANY_PROFILE | `profile_state` (kolejka), Massive financials/dividends/reference, `market.db` (cena do P/E) | `companies.db` + `profile_version` | pętla ciągła, partia 40, `throttle 0.15 s`, respektuje TTL i backoff | tak (własny plik) | **nie może blokować niczego i nie wolno mu na nic czekać** |
+| **W9** | PRIORITY_HINTS (mikro-worker) | `focus`, `cycles_*`, `company_calendar`, `base_state`, `portfolio.db` (RO) | `core.db`: `priority_hints` | co 60 s, tanie | tak | tylko podpowiada kolejność; nie pisze do `companies.db` ani `news.db` |
+| **W10** | NEWS | Massive news, Yahoo, Claude (opcjonalnie) | `news.db` | tier A (otwarte/cykle) co 15 min, tier B (BASE_OK) co 6 h, tier C reszta co 48 h | tak (własny plik) | nigdy requestu frontendu — `/news_refresh` tylko kolejkuje |
+| **W11** | IPO_TRACKER | Massive IPO calendar, `market.db` (pierwsza świeca) | `company_ipo` (+ `spark_d`, `first_close` → `companies.db`) | co 6 h; pełny kalendarz przy pustym zbiorze | tak | **nigdy `UPDATE universe SET ipo=0`** — flaga IPO jest wynikiem, nie zapisem in-place |
+| **W12** | EXECUTION (order processor + price warmer) | `market.db`, `portfolio.db` | `portfolio.db` | ceny otwartych pozycji co 15–60 s + zdarzeniowo | tak, priorytet najwyższy | nie wolno go blokować **niczym** — ale obowiązuje bramka jakości ceny (§C1) |
+| **W13** | JANITOR | wszystkie (read) | prune, `wal_checkpoint`, backup per plik, `PRAGMA integrity_check` — **przez executor danego pliku albo po jego kontrolowanym zatrzymaniu** | nocnie | nie z ciężkimi | musi omijać godziny sesji |
+
+Zmiana wobec dziś: **nie ma globalnego semafora MEDIUM**. Zamiast „maks. 2 zadania
+średnie i ustąp ciężkiemu" mamy: worker pisze do własnego pliku, więc jego równoległość
+ogranicza tylko budżet wątków sieciowych (`resources.budget("io")`), nie zamek na bazie.
+Globalny zamek zostaje wyłącznie dla ciężkich jobów łańcucha (W1/W2/W4/W5/W6) — one
+faktycznie dzielą `core.db` i CPU.
+
+#### C1. Bramka jakości ceny w egzekucji (V4.1)
+
+„W12 nie czeka na W1–W11" nie może oznaczać „W12 handluje na dowolnie starej cenie".
+Część polityki już istnieje w `db.pf_buy`: `enforce_market_fill` sprawdza
+`market_calendar.session_of()` i poza oknem zapisuje zlecenie jako `pending` (fail-safe:
+brak kalendarza = brak natychmiastowego OPEN), a `pf_fill_buy_order` nigdy nie realizuje
+BUY powyżej limitu. Brakuje jawnej bramki **wieku ceny**.
+
+| warunek | źródło | reakcja przy niespełnieniu | stan |
+|---|---|---|---|
+| wiek ostatniej ceny ≤ 120 s w RTH / ≤ 15 min poza RTH | `market_store.last_bar` | zlecenie zostaje `pending` | **brakuje** |
+| status sesji zgodny z `session_scope` | `market_calendar.session_of()` | `pending` | działa |
+| notowanie dostępne (cena > 0, `quality_status = VALID`) | `market_bars` | `pending` + wpis do `worker_health` | częściowo |
+| `idempotency_key` niepowtórzony | `ux_pf_idempotency` | zwrot istniejącego `id` | działa |
+| sygnał nie wykonany już dla tego cyklu | `cycle_id` + status pozycji | `POSITION_ALREADY_OPEN` | działa |
+| limit pozycji i gotówka | `max_positions`, `enforce_cash` | `NO_FREE_SLOT` / `NO_FREE_CAPITAL` | działa |
+
+Różnica wobec dziś to jeden brakujący wiersz i zebranie reszty w jedną jawną politykę
+zamiast rozproszonych parametrów wywołania.
+
+#### C2. Budżety wspólne — czego podział baz NIE rozwiązuje (V4.1)
+
+Pięć plików usuwa rywalizację o writer lock SQLite. Nie usuwa rywalizacji o procesor,
+dysk i **limit zapytań dostawcy**. Po zrównolegleniu W3/W8/W10/W11 wszyscy czterej biją
+w to samo API Massive, dziś każdy z własnym throttlingiem (`fundamentals.THROTTLE = 0.15`,
+partie w `ipo_worker`, brak limitu w W3).
+
+Trzy wspólne budżety, jeden właściciel każdego:
+
+- **limit API Massive** — token bucket na proces, z rezerwacją: 60% W3 (świece mają
+  pierwszorzędne znaczenie), 20% W8, 10% W10, 10% W11; nadwyżka współdzielona. Licznik
+  zużycia już istnieje (`market_store.bump_api` / `api_usage`) — brakuje egzekwowania,
+  nie pomiaru.
+- **budżet wątków** — `resources.budget("io"|"heavy")` zostaje, ale liczony globalnie dla
+  wszystkich pięciu domen, nie per moduł.
+- **priorytet procesu** — `resources.lower_priority()` dla W3/W4/W8/W10; nigdy dla W12 i API.
+
+---
+
+### D. Mechanizm publikacji danych
+
+Dwa wzorce, w zależności od tego, czy zasób jest **zbiorem** czy **rekordami**.
+
+#### D1. Zasoby zbiorowe (universe, base, technical, cycles_1d, cycles_1h, industry)
+
+Rozwinięcie tego, co już robi `pipeline_snapshots`, z dwiema poprawkami.
+
+```sql
+CREATE TABLE resource_versions(
+  resource TEXT, version_id TEXT PRIMARY KEY,
+  status TEXT,               -- BUILDING | VALIDATING | COMPLETE | FAILED
+  source_resource TEXT, source_version_id TEXT,
+  started_at REAL, completed_at REAL,
+  records_in INTEGER, records_processed INTEGER, records_failed INTEGER,
+  -- POCHODZENIE (V4.1): bez tego nie da się odtworzyć decyzji autoportfela
+  code_version TEXT,         -- config.VERSION
+  config_hash TEXT,          -- hash progów użytych w tym przebiegu
+  strategy_version TEXT,     -- tylko warstwy strategii
+  indicator_version TEXT,    -- tylko warstwy techniczne
+  params TEXT,               -- jawne parametry obliczenia (JSON)
+  meta TEXT                  -- reguły, histogram powodów, licznik wejścia
+);
+CREATE TABLE resource_current(  -- JEDEN wiersz na zasób = wskaźnik publikacji
+  resource TEXT PRIMARY KEY, version_id TEXT, published_at REAL
+);
+```
+
+Cykl życia: `BUILDING` → (zapis do wersjonowanych wierszy lub staging) → `VALIDATING`
+(walidacja poniżej) → `COMPLETE` → **jeden `UPDATE resource_current`** = publikacja.
+
+Cztery z tych pól już istnieją w `scan_runs` (`code_version`, `config_version`,
+`config_hash`, `indicator_version`) — to nie nowy wynalazek, tylko podniesienie
+istniejącego wzorca z jednej tabeli do wszystkich zasobów. Uzasadnienie jest twarde:
+`pf_trades` trzyma `strategy_name`, `strategy_version`, `config_version` przy każdej
+transakcji, więc bez pochodzenia po stronie zasobu nie da się odtworzyć, **na jakich
+danych** automat podjął decyzję.
+
+Poprawka 1 — **walidacja jest warunkiem publikacji, nie adnotacją**. Reguły minimalne:
+`records_processed > 0`, `records_failed / processed < 0.2`, licznik nie spadł o więcej
+niż 30% wobec poprzedniej `COMPLETE` (chroni przed „PARTIAL nadpisuje COMPLETE" — dokładnie
+przypadek r477 „1560/2500"), `source_version_id` istnieje i jest `COMPLETE`.
+
+Poprawka 2 — **koniec ze snapshotami-wypełniaczami**. Dziś `pipeline._job_technical`
+tworzy snapshot `cycles_1d` z `placeholder: (n1d == 0)`, a `pipeline_state()` musi to
+wykrywać (`_is_placeholder`, `_c1d_has_result`). W V4: wersja albo istnieje jako
+`COMPLETE` z realnymi liczbami, albo nie istnieje. Brak wersji to poprawny, czytelny
+stan — nie trzeba go udawać.
+
+Odczyt: konsument **raz** rozwiązuje `resource_current` i trzyma `version_id` przez
+cały przebieg. Dlatego żaden moduł nie zobaczy pół starego, pół nowego zbioru.
+
+#### D2. Zasoby rekordowe (profil spółki, newsy)
+
+Snapshot całego zbioru 6–9 tys. spółek byłby absurdem — profil aktualizuje się per
+spółka. Jednostką publikacji jest **rekord**.
+
+```sql
+CREATE TABLE profile_staging(     -- surowa odpowiedź źródła, przed walidacją
+  symbol TEXT, block TEXT,        -- identity|classification|size|dividends|financials|ownership|ipo
+  fetched_at REAL, payload TEXT, source TEXT,
+  PRIMARY KEY(symbol, block));
+
+CREATE TABLE profile_state(
+  symbol TEXT, block TEXT,
+  updated_at REAL, next_refresh_at REAL,
+  last_attempt REAL, last_success REAL,
+  status TEXT,                    -- OK | STALE | MISSING | PROVIDER_NO_DATA | ERROR
+  error TEXT, tries INTEGER DEFAULT 0,
+  priority INTEGER DEFAULT 0, version INTEGER DEFAULT 0,
+  PRIMARY KEY(symbol, block));
+```
+
+Przebieg dla jednego bloku jednej spółki:
+
+1. W8 pobiera → `profile_staging`,
+2. waliduje blok (kompletność, sensowność: `shares > 0`, `float_pct 0–100`,
+   `market_cap` w promieniu ×3 od `price × shares`, `eps_ttm` z 4 kwartałów lub `NULL`
+   — reguła już obecna w `fundamentals.ttm_from_quarters`),
+3. sukces → **jedna transakcja**: merge do tabeli docelowej + `version = version + 1`
+   + `updated_at`, `next_refresh_at`, `status='OK'`, `tries=0`,
+4. porażka → tabela docelowa **nietknięta**; w `profile_state` rośnie `tries`,
+   zapisuje się `error` i `next_refresh_at` z backoffu. Czytelnik nadal widzi
+   poprzednią poprawną wartość ze znacznikiem `is_stale`.
+
+**Zasada „ZERO ≠ brak danych"** z `core/fundamentals.py` obowiązuje jako reguła
+architektoniczna dla całego profilu: pole bez danych zostaje `NULL`, nigdy `0`.
+
+---
+
+### E. Eliminacja zależności blokujących
+
+Konkretne zależności do usunięcia, z miejscem w kodzie:
+
+| # | dzisiejsza zależność | miejsce | docelowo |
+|---|---|---|---|
+| E1 | zadanie MEDIUM (IPO, wzbogacanie, kapitalizacje) czeka w pętli na koniec zadania HEAVY | `core/resources.py`, `medium.__enter__`: `while _STATE["heavy_owner"]: sleep(0.5)` | brak zależności — inny plik bazy; ogranicza tylko budżet wątków sieciowych |
+| E2 | request `/fundamentals` startuje pobieranie z sieci | `core/fundamentals.get_map(kick=True)`, `api.py:2232` | request tylko czyta; `kick` → upsert priorytetu w `profile_state` |
+| E3 | odczyt pozycji portfela startuje wzbogacanie metadanych | `db.pf_trades()` → wątek `reference_enrich.enrich_symbols` | odczyt czyta profil z `companies.db`; braki widoczne jako `is_stale` |
+| E4 | ciężkie joby startowane wątkiem wprost z API (8 miejsc) | `api.py:283, 307, 319, 4200, 82, 102, 2426, 2462` | wyłącznie `pipeline.request_job()` |
+| E5 | budowa listy spółek czeka na sieć per spółka (mcap, sektor) | `universe_builder.evaluate()` | W1 nie robi requestów per spółka; W8 dociąga niezależnie |
+| E6 | skan techniczny synchronizuje kalendarz IPO i uzupełnia nazwy | `scanner_worker` (`_ipo_calendar_sync`, linie 978–998, 1064) | W11 i W8, niezależnie od skanu |
+| E7 | trzy schedulery rozstrzygają o tym samym | `coordinator.py` + `resources.py` + `pipeline.py` | jeden: `pipeline` (registry + wersje + heavy lock); `resources` zostaje **tylko** jako budżet wątków; `coordinator` znika |
+| E8 | zapis transakcji czeka do 60 s na zwolnienie bazy przez skaner | `db.get_conn` `busy_timeout=60000`, `_write_retry(6)` | `portfolio.db` — brak wspólnego pisarza; `busy_timeout` można obniżyć do 5 s |
+| E9 | frontend czeka na zakończenie procesów, bo endpointy liczą w locie | m.in. `/ipo_refresh` (api.py:3800–4010) | endpointy tylko czytają; ciężka praca za `request_job` |
+
+Docelowy model, bez ani jednej strzałki „czeka na":
+
+```
+W3 market updater   → market.db      ─┐
+W1 universe         → core.db        ─┤
+W2 base             → core.db        ─┼→ W4 technical → W5/W6 cykle → W7 strategie
+W8 company profile  → companies.db   ─┤     (każdy czyta OSTATNIĄ POPRAWNĄ wersję)
+W10 news            → news.db        ─┤
+W11 ipo             → companies.db   ─┘
+W12 execution       → portfolio.db      (całkowicie poza łańcuchem)
+```
+
+---
+
+### F. Aktualizacje inkrementalne
+
+Nigdy nie przeliczamy 6–9 tys. spółek od zera. Kolejka zawiera **wyłącznie rekordy
+przeterminowane**:
+
+```sql
+SELECT symbol, block FROM profile_state
+WHERE next_refresh_at <= :now
+ORDER BY priority DESC, next_refresh_at ASC
+LIMIT :batch;
+```
+
+#### TTL per blok danych
+
+| blok | TTL | uzasadnienie |
+|---|---|---|
+| **base_input** (mcap albo shares — §J) | 1 dzień; nowy symbol natychmiast | **warunek wstępny oceny BASE**, nie część profilu |
+| identity (nazwa, giełda) | 30 dni | zmienia się wyjątkowo |
+| classification (sektor, branża, podbranża) | 30 dni | jak wyżej |
+| size: market_cap | 1 dzień | zależy od ceny; poza sesją bez sensu częściej |
+| size: shares outstanding, free float | 7 dni | dane z raportów |
+| ADV | liczony przez W2 z `market.db`, **nie pobierany** | jest już w danych |
+| dividends | 3 dni | zgodne z dzisiejszym `DIV_TTL` |
+| financials (TTM, EPS, wyniki) | 7 dni; **1 dzień w oknie ±7 dni od raportu** | zgodne z `FIN_TTL`, zagęszczone wokół publikacji |
+| ownership (akcjonariat) | 7 dni | rzadkie aktualizacje źródła |
+| calendar (data raportu) | 1 dzień w oknie ±14 dni, inaczej 7 dni | zmienna wrażliwa czasowo |
+| ipo (debiut, pierwsze notowanie) | 1 dzień w oknie 180 sesji, potem zamrożone | okno z `ipo_grace_sessions` |
+| news tier A / B / C | 15 min / 6 h / 48 h | jak w tabeli workerów |
+| brak danych u dostawcy (`PROVIDER_NO_DATA`) | 1 dzień, potem backoff | dzisiejszy `MISS_TTL` |
+
+#### Retry / backoff
+
+Reużywamy sprawdzonej krzywej z `core/ipo_worker.py` (`RETRY_H = (2, 8, 24, 72)`),
+uogólnionej: `next_refresh_at = now + RETRY_H[min(tries, 3)] * 3600`, po 4. próbie
+status `PROVIDER_NO_DATA` i odstęp 7 dni. To rozwiązuje problem opisany w r423
+(„uzupełniono 56, zostało 216" powtarzane co 45 s bez postępu) systemowo, dla
+wszystkich bloków, nie tylko IPO.
+
+Dla świec: `data_sync_state` już ma `last_bar_ts`, `last_final_bar_ts`, `error_count`,
+`status` (`OK`/`STALE`/`INCOMPLETE`/`ERROR`) — brakuje tylko `next_refresh_at`
+i wspólnej krzywej backoffu. To najmniejsza zmiana w całym dokumencie.
+
+---
+
+### G. Priorytety
+
+Priorytet to **jedna liczba `priority` w tabeli stanu**, liczona przez jeden mikro-worker
+(W9). Nie jest rozproszona po modułach i nie wpływa na to, *czy* rekord się kwalifikuje —
+tylko na *kolejność*.
+
+| źródło priorytetu | waga | skąd dane |
+|---|---|---|
+| spółka aktualnie otwarta przez użytkownika | 1000 | `focus` (TTL 10 min, jedyny zapis frontendu) |
+| pozycja otwarta w portfelu | 800 | `portfolio.db` (odczyt) |
+| aktywny cykl 1D/1H | 500 | `cycles_active`, `cycles1h_active` |
+| nowe IPO w oknie | 400 | `company_ipo` |
+| raport w ciągu 7 dni | 300 | `company_calendar` |
+| brak danych krytycznych (nazwa / sektor / mcap) | 200 | `profile_state.status` |
+| BASE_OK | 100 | `base_state` |
+| pozostałe | 0 | — |
+
+Rozdzielność jest zachowana, bo W9 **czyta** cudze zasoby i publikuje `priority_hints`
+w `core.db` (V4.2). Nie pisze do `companies.db` ani `news.db` — W8 i W10 czytają
+podpowiedzi i nanoszą priorytet we własnym pliku, w transakcji, w której i tak
+aktualizują stan swojej kolejki. Żaden worker analityczny nie dowiaduje się o istnieniu
+priorytetów; każdy bierze swoją kolejkę posortowaną.
+
+---
+
+### H. API / frontend
+
+Kontrakt: **każdy `GET` zwraca gotowy zasób z ostatniej opublikowanej wersji. Zero sieci,
+zero obliczeń, zero oczekiwania.**
+
+```
+GET /companies/CRCL
+{
+  "symbol": "CRCL",
+  "identity":       {"name": "...", "exchange": "NYSE", ...},
+  "classification": {"sector": "...", "industry": "...", "sub_industry": "..."},
+  "size":           {"price": 31.2, "market_cap": ..., "adv": ..., "shares": ..., "float_pct": ...},
+  "ipo":            {"debut_date": "2025-06-05", "ipo_price": ..., "first_close": ...},
+  "dividends":      {...},
+  "financials":     {...},
+  "ownership":      {...},
+  "chart":          {"tf": "1D", "calibrated": true, "version": "T1786..."},
+  "news":           {"count_72h": 4, "last_ts": ...},
+  "freshness": {
+    "identity":   {"last_updated": 1786..., "is_stale": false, "version": 12},
+    "financials": {"last_updated": 1786..., "is_stale": true,  "status": "PROVIDER_NO_DATA"},
+    "ownership":  {"last_updated": null,    "is_stale": true,  "status": "MISSING"}
+  }
+}
+```
+
+Reguły:
+
+- `is_stale = now > next_refresh_at` — informacja, nie błąd. UI pokazuje wartość
+  z dyskretnym znacznikiem wieku; brak danych to `—`, nigdy `0`.
+- Każda odpowiedź niesie `version` / `last_updated` per blok. Nigdy jednego globalnego
+  „zaktualizowano", bo bloki mają różne TTL.
+- Batch: `POST /companies` z listą symboli — jedno zapytanie na widok listy (wzorzec
+  już zastosowany w `/fundamentals`, rozszerzony na cały profil).
+- Jedyny zapis z frontendu: `POST /focus {symbols:[...]}` — 1-wierszowy upsert, bez sieci.
+- `/news_refresh`, `/universe/build`, przeliczenia cykli → **kolejkują** i zwracają
+  `job_id` lub `queued: true`. Nigdy nie czekają na wynik.
+- Endpoint `GET /chart/{symbol}?tf=` czyta wyłącznie `market.db` (przełącznik
+  30m/1H/2H/4H/1D z r594 działa już poprawnie na tym wzorcu — 1H/2H/4H są pochodne
+  z 30m przy odczycie, `market_store.DERIVED_FROM_30M`).
+
+**ATTACH to punkt startu, nie decyzja końcowa (V4.1).** Ekrany listowe (lista spółek,
+Cykle, shortlisty) łączą dane z `core.db` + `companies.db` + `news.db`. `ATTACH` przy
+każdym żądaniu jest poprawny dla kilkudziesięciu wierszy, ale przy listach po kilkaset
+spółek może sam stać się wąskim gardłem. Kolejność:
+
+1. E1–E3 działają na `ATTACH read-only` — prosto, bez nowego stanu do utrzymania,
+2. **mierzymy czas endpointów listowych** (`duration_ms` w `worker_health`),
+3. jeśli przekroczą ~150 ms, dopiero wtedy dodajemy w `core.db` projekcję odczytową
+   (`list_view`) odświeżaną **po publikacji** zasobu, nigdy przy żądaniu.
+
+Projekcja odczytowa byłaby kolejnym zasobem z własną wersją i własnym pisarzem — nie
+wyjątkiem od reguł. Nie budujemy jej z góry: to trzecia kopia tych samych danych, zanim
+wiemy, że jest potrzebna.
+
+---
+
+### I. Monitoring
+
+Jedna tabela na plik + jeden endpoint agregujący (ATTACH read-only, zero locków):
+
+```sql
+CREATE TABLE worker_health(
+  worker TEXT PRIMARY KEY,
+  last_attempt REAL, last_success REAL,
+  status TEXT,                -- IDLE | RUNNING | OK | DEGRADED | ERROR | NO_KEY
+  error TEXT, duration_ms INTEGER,
+  records_processed INTEGER, records_failed INTEGER,
+  version TEXT,               -- wersja zasobu, którą wyprodukował
+  heartbeat REAL, next_run REAL
+);
+```
+
+`GET /health/resources` zwraca dla każdego z 13 workerów i 6 zasobów:
+`last_attempt`, `last_success`, `status`, `error`, `duration`, `records_processed`,
+`records_failed`, `version`, `next_run`, `queue_depth`, `stale_records`.
+
+Dzięki temu odpowiedź na „który worker nie działa" i „który zasób jest nieaktualny"
+jest jednym zapytaniem, bez wpływu na pozostałe moduły. Dzisiejsze rozproszone statusy
+(`ipo_worker_status`, `reference_enrich_status`, `pipeline_jobs`, `sync_log`,
+`scanner_worker.STATUS`, `resources.state()`, `coordinator.snapshot()`) zwijają się
+do jednego kształtu.
+
+Progi alertów (widoczne w UI jako kolor): `last_success` starszy niż 3× TTL zasobu ⇒
+`DEGRADED`; `heartbeat` starszy niż 3× cadence ⇒ worker uznany za martwy (zastępuje
+dzisiejszą heurystykę „osierocony job po 600 s" z `pipeline.ensure_progress`).
+
+---
+
+### J. Pętla BASE ↔ profil — i dlaczego dziś jeszcze się nie zamyka (V4.1)
+
+Zgłoszone ryzyko: `brak mcap → brak BASE_OK → profil nie pobierany → nadal brak mcap`.
+
+**Sprostowanie stanu faktycznego:** dziś ta pętla się nie zamyka, bo BASE jest
+*fail-open* na kapitalizacji. W `universe_builder.evaluate()`:
+
+```python
+if base_ok and mc is not None and mc < L.get("base_min_mcap", 50_000_000):
+    base_ok = False; reasons.append("MARKET_CAP_TOO_LOW")
+elif base_ok and mc is None:
+    reasons.append("MISSING_MARKET_CAP")      # base_ok ZOSTAJE True
+```
+
+Brak mcap dopisuje powód diagnostyczny, ale **nie odrzuca spółki**. Ta sama zasada jest
+w `reevaluate_base()`. Pętla jest więc ryzykiem **wprowadzanym przez R9** (wyjęcie
+`ds.fetch_market_cap` z buildera), nie obecnym błędem. Rozwiązać ją trzeba mimo to —
+bo bez mcap część BASE_OK byłaby przepuszczana „na kredyt", a nie oceniana.
+
+**Rozwiązanie: `base_input` jako osobny byt, przed profilem.**
+
+```
+W1 odkrywa symbol
+      ↓
+W0 BASE_INPUT — minimalne wejście do decyzji: cena, ADV, mcap ALBO shares
+   (cena i ADV z market.db — są już na miejscu; z sieci tylko mcap/shares)
+      ↓
+W2 BASE_EVAL — decyzja, zero sieci
+      ↓
+W8 COMPANY_PROFILE — pełny profil TYLKO dla BASE_OK
+   + symboli o wysokim priorytecie (otwarta pozycja, focus użytkownika, IPO w oknie)
+```
+
+Zasady:
+
+- `base_input` i pełny profil są **logicznie rozdzielone**, fizycznie oba w
+  `companies.db` (tabela `company_base_input`, osobny wiersz w `profile_state` z
+  `block='base_input'`). Nie robimy szóstego pliku dla dwóch pól.
+- W0 **nie blokuje** W2. BASE liczy na tym, co jest; brak danych zostaje
+  `MISSING_MARKET_CAP` — dokładnie jak dziś. Zmienia się tylko to, że luka jest widoczna
+  w kolejce i domykana, a nie odkrywana dopiero przy następnym pełnym buildzie.
+- W0 ma najwyższy priorytet w `companies.db` — zależy od niego warstwa niżej. Dywidendy,
+  akcjonariat i wyniki nie mają prawa go wyprzedzić.
+- `shares outstanding` jest równorzędnym wejściem: `mcap ≈ price × shares` liczymy
+  z `market.db`, gdy dostawca nie poda gotowej kapitalizacji.
+
+Efekt: pełny profil pobieramy dla BASE_OK — rząd wielkości kilkuset do kilku tysięcy —
+a nie dla 9 tysięcy. `base_input`, dwa tanie pola, dla wszystkich kandydatów.
+
+---
+
+## 4. Harmonogram — zdarzeniowy, nie zegarowy (V4.1)
+
+Zegar decyduje wyłącznie o tym, **kiedy producent może wystartować**. O tym, kiedy liczy
+konsument, decyduje **publikacja nowej wersji zasobu źródłowego**. Wzorzec już działa
+w kodzie: `pipeline.request_job` po każdym SUCCESS odpala `ensure_progress()` (auto-chain,
+r486 §9). V4.1 rozszerza go na wszystkie warstwy i odbiera zegarowi rolę sprawczą.
+
+**Łańcuchy zdarzeniowe:**
+
+```
+nowa świeca 1D (potwierdzone zamknięcie sesji)
+     → W4 technika 1D → W5 cykle 1D → W7 strategie
+
+nowa świeca 1H (zamknięcie świecy godzinowej)
+     → W4 technika 1H → W6 cykle 1H → W7 strategie
+
+nowa wersja `universe` → W0 base_input (braki) → W2 BASE_EVAL → W4
+nowa wersja `base`     → W3 zmienia zbiór synchronizowanych symboli
+zmiana progów w Logice → W2 BASE_EVAL (zero sieci)
+```
+
+**Zegar — tylko okna startu i watchdog:**
+
+```
+04:00 ET  W1 UNIVERSE_DISCOVERY   (jedyny etap czysto zegarowy)
+05:00 ET  W3 nocny reconcile luk 1d + 30m
+09:30–16:00 ET  W3 co 5 min (zbiór BASE_OK) · W7 co 15 min (używa ceny bieżącej)
+                W12 ceny otwartych pozycji co 15–60 s
+CIĄGLE, własne pliki:  W0 base_input · W8 profil · W10 news · W11 IPO · W9 priorytety
+23:30 ET  W13 JANITOR (prune, checkpoint, integrity_check, backup per plik)
+co 45 s   watchdog: czy łańcuch nie stoi (istniejący `ensure_progress`)
+```
+
+**Kalendarz giełdy, nie godziny serwera.** Wszystkie okna liczone przez
+`core/market_calendar.py` i `v3/market_data/us_calendar.py` — święta, skrócone sesje,
+zmiany czasu. Ta warstwa istnieje i jest przetestowana (`test_us_calendar`); żaden worker
+nie ma prawa używać stałej godziny serwera.
+
+**Brak nowej wersji źródła ⇒ konsument zdarzeniowy nie startuje (V4.2).** To nie to samo,
+co „liczy na starej wersji". Reguła jest dwuczłonowa:
+
+- **konsument zdarzeniowy** (W5, W6 po `technical`; W2 po `universe`) startuje **wyłącznie
+  wtedy, gdy pojawiła się NOWA kompletna wersja źródła**. Brak nowej wersji to brak
+  przebiegu — nie przebieg na starej. System nadal udostępnia ostatnią kompletną wersję
+  *wyniku*, więc UI i strategie mają z czego czytać.
+- **konsument okresowy** (W7 co 15 min, bo używa ceny bieżącej) może użyć starej wersji
+  `technical` — ale tylko dlatego, że ma **drugie, nowsze wejście**. W wyniku zapisuje
+  oba `source_version_id`.
+
+Nigdy na wersji w budowie — to obowiązuje bez wyjątków.
+
+**Deduplikacja jobów (V4.3).** Restart procesu, watchdog i podwójne zdarzenie nie mogą
+uruchomić tego samego przeliczenia dwa razy. Jeden `source_version_id` **nie wystarcza**:
+W7 korzysta jednocześnie z `technical`, `cycles_1d`, `cycles_1h` i ceny bieżącej,
+a SQLite dopuszcza wiele `NULL` w indeksie UNIQUE — czyli „brak wersji" nie kolidowałby
+sam ze sobą. Kluczem jest jawny odcisk wejść:
+
+```
+input_fingerprint = sha1(
+    job_type + '|' +
+    # NAZWANE PARY, nie sama posortowana lista — inaczej dwa różne zestawy wejść
+    # o tych samych ID (np. zamiana ról warstw) dałyby ten sam odcisk:
+    'technical=T1786…;cycles_1d=C1D1786…;cycles_1h=C1H1786…' + '|' +
+    price_window +          # okno ceny bieżącej, np. 15-minutowy kubełek; '' gdy nieużywana
+    '|' + config_hash + '|' + (strategy_version or '')
+)
+```
+
+Pary składamy w kolejności alfabetycznej nazw warstw, brakujące wejście zapisujemy
+jawnie jako `nazwa=` — żeby „brak cycles_1h" i „cycles_1h z poprzedniej generacji" nie
+były tym samym odciskiem.
+
+```sql
+ALTER TABLE pipeline_jobs ADD COLUMN input_fingerprint TEXT NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX ux_job_dedupe
+  ON pipeline_jobs(job_type, input_fingerprint)
+  WHERE state IN ('RUNNING','SUCCESS') AND input_fingerprint <> '';
+```
+
+Mocniejsze niż dzisiejsze `ALREADY_RUNNING` (patrzy tylko na `job_type` w stanie aktywnym)
+i zastępuje część heurystyk cooldownu z r501 — powtórka odbija się o fakt „ten wynik dla
+tego zestawu wejść już istnieje", a nie o zegar. `price_window` w odcisku sprawia, że W7
+wolno policzyć ponownie po zmianie ceny, ale nie dwa razy w tym samym okienku.
+
+W1/W2/W4/W5/W6/W7/W9 publikują przez **core writer** (kolejka, nie równoległość zapisu —
+ale liczenie i pobieranie nadal równolegle). W0/W8/W11 przez **companies writer**,
+W10 przez **news writer**, W3 przez **market writer**, W12 przez **portfolio writer**.
+Czterej ostatni pracują obok siebie, w granicach wspólnych budżetów z §C2.
+
+---
+
+## 5. Miejsca w kodzie wymagające refaktoryzacji
+
+Uporządkowane po koszcie i ryzyku. „Ryzyko" = ryzyko regresji w działającym systemie.
+
+| # | plik / funkcja | problem | działanie | koszt | ryzyko |
+|---|---|---|---|---|---|
+| R1 | `core/resources.py` `medium.__enter__` | busy-wait na HEAVY = zależność blokująca | usunąć oczekiwanie po podziale baz; `resources` zostaje tylko budżetem wątków | niski | niskie |
+| R2 | `api.py` (8 miejsc `threading.Thread`) | ciężkie joby poza rejestrem | przekierować na `pipeline.request_job` | niski | niskie |
+| R3 | `core/fundamentals.get_map(kick=True)` | sieć w ścieżce requestu | `kick` → podniesienie `priority` w kolejce | niski | niskie |
+| R4 | `db.pf_trades()` — wątek `reference_enrich` | odczyt uruchamia zapis i sieć | usunąć; czytać profil z `companies.db` | niski | niskie |
+| R5 | `api.py:3802` `UPDATE universe SET ipo=0 WHERE ipo=1` | destrukcyjny, nieatomowy | zastąpić publikacją wersji `company_ipo` | niski | **wysokie dziś** (utrata flag), niskie po zmianie |
+| R6 | `universe_builder.build_universe` linie ~472–480 | drugi producent snapshotu `base` | usunąć; BASE tylko z W2 | niski | średnie (dotyka `chain_consistent`) |
+| R7 | `core/pipeline._job_technical` | tworzy snapshoty `cycles_1d` / `cycles_1h` + placeholdery | rozdzielić: W4 kończy na `technical`; W5/W6 publikują same | średni | średnie |
+| R8 | `core/pipeline.pipeline_state` (`_is_placeholder`, `_c1d_has_result`) | łata na skutek R7 | usunąć po R7 | niski | niskie |
+| R9 | `universe_builder.evaluate()` — `ds.fetch_market_cap`, `ds.fetch_info` | sieć per spółka w budowie listy | przenieść do W8 | średni | średnie (BASE ma dziś mcap z tego wywołania — przejściowo `MISSING_MARKET_CAP`) |
+| R10 | `core/universe_service.update_incremental` — `UPDATE universe SET base_ok=0` | moduł listy ocenia BASE | oznaczać `active=0` w `universe_symbols`; BASE liczy tylko W2 | niski | średnie |
+| R11 | `core/reference_enrich` (2 miejsca) + `core/ipo_worker._fill_info` | dwa moduły robią to samo, oba piszą do `universe` | scalić w W8, pisać do `companies.db` | średni | średnie |
+| R12 | `core/ipo_worker._fill_charts` (`spark_d`, `first_close`) | dane wykresowe w tabeli listy | → `companies.db` (albo liczone z `market.db` na żądanie) | średni | niskie |
+| R13 | `scanner_worker.scan_once` (2222 linie: IPO sync, dogrywka nazw, mcap) | pipeline w jednym pliku | wyciąć wszystko poza techniką | **wysoki** | **wysokie** — robić na końcu, po R7 |
+| R14 | `db.py` `snapshots` — kolumny `name/sector/exchange/market_cap` | profil w tabeli cache'u na whiteliście do usuwania | usunąć kolumny po przejściu UI na `companies.db` | średni | średnie |
+| R15 | `db._recover_corrupt_db` | może odłożyć cały `scanner.db` razem z rejestrem transakcji | po wydzieleniu `portfolio.db` — jawnie wykluczyć ten plik z autonaprawy | niski | **redukuje bardzo wysokie ryzyko** |
+| R16 | `core/coordinator.py` | trzeci scheduler | usunąć po R2 i R7 | niski | średnie (7 blokad w użyciu — wymaga przeglądu call-site'ów) |
+| R17 | `core/market_store.conn()` | thread-local połączenie bez `_write_retry` | dodać wspólny retry/backoff jak w `db._write_retry` | niski | niskie |
+
+---
+
+## 6. Plan migracji etapami (bez zatrzymywania skanera)
+
+Każdy etap: osobna paczka, osobny numer wersji, **własny przełącznik wyłączający**
+(wzorzec `settings.pipeline_v2_only`, który już sprawdził się przy migracji V1→V2),
+i test regresji przed wydaniem. Skaner działa przez cały czas.
+
+**E0 — diagnostyka (bez zmiany zachowania).** `GET /health/resources` liczony z
+istniejących źródeł + skrypt audytu „kto pisze do której tabeli". Cel: liczby przed
+zmianą, do porównania po. *Ryzyko: brak.* → R-nic.
+
+**E1 — `companies.db` + W0 BASE_INPUT + W8 COMPANY_PROFILE, tryb dual-write.** Nowy plik,
+companies writer, kolejki `profile_state` (w tym blok `base_input`), oba workery. W0
+domyka braki `mcap`/`shares` dla kandydatów; W8 buduje pełny profil dla BASE_OK.
+Zapisują do `companies.db` **i** (przejściowo) do `universe`, jak dziś.
+`GET /companies/{t}` czyta nowy plik z fallbackiem do `universe`. Nic nie przestaje
+działać. *Przełącznik: `profile_resource_enabled`.* → R3, R11 (część), R12.
+
+**Warunki wejścia do E2** (V4.2 — bez nich R9 usunąłoby starą ścieżkę mcap przed
+uruchomieniem nowej):
+
+1. W0 przepracował pełną dobę bez przerwy,
+2. kolejka `base_input` **nie narasta trwale**: trend malejący w oknie 24 h, wiek
+   najstarszego zadania < 48 h, backlog nie rośnie w trzech kolejnych pomiarach.
+   Nie wymagamy monotoniczności — dochłodzą nowe symbole i retry, więc chwilowe wzrosty
+   są normalne,
+3. wykonano porównanie stare vs nowe `market_cap` na próbie — rozbieżność > 10% wyjaśniona,
+4. **liczba wystąpień `MISSING_MARKET_CAP` wśród WSZYSTKICH ocenionych spółek** nie wzrosła
+   wobec pomiaru z E0. Mierzymy względem ocenionych, nie względem BASE_FAIL — brak mcap
+   działa fail-open, więc w BASE_FAIL tego powodu w ogóle nie widzimy,
+5. W2 czyta `company_base_input` i daje ten sam wynik BASE_OK co przed zmianą (±1%).
+
+Dopiero po spełnieniu wszystkich pięciu wolno usunąć `ds.fetch_market_cap` z
+`universe_builder`.
+
+**E2 — odcięcie pisarzy `universe`.** **Wymaga spełnienia pięciu warunków wejścia z E1.**
+Wyłączamy dual-write. `universe_symbols` ma
+jednego pisarza (W1), `base_state` drugiego (W2). Flaga IPO staje się odczytem z
+`company_ipo`. Usuwamy R5, R10, R6, R9. UI już czyta profil z E1, więc zmiana jest
+niewidoczna. *Przełącznik: `universe_single_writer`.* → R5, R6, R9, R10, R11.
+
+**E3 — `news.db` + W10.** Newsy z TTL i tierami zamiast pobierania na żądanie.
+`/news_refresh` kolejkuje. Migracja: `INSERT INTO news.db SELECT * FROM scanner.db.news`
+(jednorazowo, w oknie nocnym). *Przełącznik: `news_resource_enabled`.* → E9.
+
+**E4 — `portfolio.db`.** Najwrażliwszy etap i największa wygrana. Kolejność:
+kopia bezpieczeństwa → kopia tabel (`portfolios`, `pf_trades`, `auto_trades`,
+`portfolio_runs`, `portfolio_equity_snapshots`, `card_*`) → weryfikacja liczników i sum
+PnL → przełączenie ścieżki zapisu → dopiero po dobie zdrowej pracy usunięcie starych
+tabel. Egzekucja wstrzymana na kilka sekund, nie minut. Wyłączenie `portfolio.db`
+z autonaprawy (R15). *Przełącznik: `portfolio_db_split`.* → R15, E8.
+
+**E5 — jeden scheduler.** Wszystkie wejścia ciężkie przez `pipeline.request_job`,
+`coordinator` usunięty, `resources` zredukowany do budżetu wątków, `medium` bez
+busy-waitu. *Przełącznik: brak — to usuwanie martwego kodu po E1–E4.* → R1, R2, R16.
+
+**E6 — wersjonowanie zasobów.** `resource_versions` + `resource_current` dla wszystkich
+warstw; walidacja jako warunek publikacji; koniec ze snapshotami-wypełniaczami; W5/W6
+publikują własne wersje. *Przełącznik: `resource_versioning`.* → R7, R8.
+
+**E7 — rozbiór `scanner_worker`.** Dopiero teraz, gdy IPO, profil i cykle mają własnych
+właścicieli, zostaje z niego czysty TECHNICAL_SCAN. Największa zmiana, najmniejsze
+ryzyko — bo wszystko, co z niego wychodzi, już działa osobno. → R13.
+
+**E8 — porządki.** Usunięcie kolumn profilowych z `snapshots`, `VACUUM`, backup per plik,
+`wal_checkpoint`, usunięcie martwego kodu legacy. → R14, R17.
+
+Reguła wspólna dla wszystkich etapów: **żaden etap nie usuwa danych, dopóki nowa ścieżka
+nie przepracowała pełnej doby.** Usuwanie zawsze w osobnej, późniejszej paczce.
+
+---
+
+## REKOMENDOWANA ARCHITEKTURA
+
+1. **Pięć plików SQLite, podzielonych po właścicielu zapisu, nie po temacie:**
+   `market.db` (świece), `core.db` (łańcuch pipeline'u: universe → base → technical →
+   cykle → sygnały), `companies.db` (profil), `news.db` (wiadomości),
+   `portfolio.db` (transakcje). WAL wszędzie. **Zero transakcji przez granicę plików**,
+   odczyt cross-DB tylko przez ATTACH read-only.
+
+2. **Jeden zasób = jeden proces piszący, wymuszony executorem per plik.**
+   `universe_symbols` — W1. `base_state` — W2. `market_bars` — W3. `snapshots` — W4.
+   `companies.*` — W0/W8/W11. `news` — W10. `portfolio.*` — W12. Każdy inny dostęp to
+   odczyt. Ponieważ writer lock SQLite obowiązuje na **plik**, nie na tabelę, każdy z
+   pięciu plików ma jedną kolejkę i jeden wątek-executor; wszyscy pozostali dostają
+   połączenie read-only. Liczenie i pobieranie nadal równolegle — serializowana jest
+   tylko krótka transakcja publikująca wynik.
+
+3. **Nowy moduł „Spółki" jako pełnoprawny zasób w `companies.db`**, podzielony na bloki
+   z własnym TTL (identity, classification, size, ipo, dividends, financials, ownership,
+   calendar). Profil istnieje dla każdej spółki spełniającej BASE, **niezależnie** od
+   obecności w Cyklach czy Sygnałach. Wykres nie jest częścią profilu — jest referencją
+   do `market.db` (`{tf, version}`), bo tam już jest skalibrowany.
+
+4. **Publikacja: wersje + jeden wskaźnik.** Zbiory (universe/base/technical/cykle) —
+   `resource_versions` + atomowy `UPDATE resource_current`, z walidacją jako warunkiem
+   publikacji. Rekordy (profil, newsy) — staging → walidacja → merge per rekord
+   z inkrementacją `version`. Konsument rozwiązuje wersję raz i trzyma ją przez przebieg.
+
+5. **Jeden scheduler** (`pipeline`): registry jobów, wersje, jeden zamek ciężki dla
+   W1/W2/W4/W5/W6. `resources` zredukowany do budżetu wątków sieciowych, `coordinator`
+   usunięty. Workery pracujące na własnych plikach chodzą równolegle bez zamków.
+
+6. **Aktualizacje wyłącznie inkrementalne:** kolejka `WHERE next_refresh_at <= now
+   ORDER BY priority DESC`, TTL per blok, backoff `2/8/24/72 h` → `PROVIDER_NO_DATA`
+   po czwartej próbie. Nigdy przebiegu po wszystkich 9 tys. spółek „na wszelki wypadek".
+
+7. **Priorytety jako jedna liczba w kolejce**, liczona przez jeden mikro-worker z
+   `focus` / portfela / cykli / kalendarza / braków. Wpływa na kolejność, nigdy na
+   kwalifikację, nigdy nie przecieka do modułów analitycznych.
+
+8. **API tylko czyta.** `GET /companies/{t}` zwraca ostatni gotowy profil z
+   `last_updated`, `is_stale` i `version` **per blok**. Jedyny zapis frontendu to
+   `POST /focus`. Wszystko ciężkie wraca jako `job_id` / `queued`.
+
+9. **Egzekucja poza łańcuchem.** W12 czyta `market.db`, pisze `portfolio.db`, nie ma
+   ani jednej zależności od W1–W11 i nie blokuje żadnego z nich.
+
+10. **Jedna diagnostyka.** `worker_health` per plik + `GET /health/resources`:
+    last_attempt, last_success, status, error, duration, records_processed,
+    records_failed, version, next_run, queue_depth. Odczyt nigdy nie bierze locka.
+
+11. **`base_input` przed profilem** (§J). Minimalne wejście do decyzji BASE (cena, ADV,
+    mcap albo shares) jest osobnym, najwyżej priorytetowym blokiem — nie częścią pełnego
+    profilu. Pełny profil dostają BASE_OK i symbole o wysokim priorytecie.
+
+12. **Zdarzenia zamiast zegara** (§4). Publikacja wersji źródłowej wyzwala konsumenta;
+    zegar wyznacza tylko okna startu producentów. Wszystkie okna z kalendarza giełdy,
+    nigdy z godzin serwera.
+
+13. **Budżety wspólne obok podziału baz** (§C2). Pięć plików usuwa writer lock, ale nie
+    rywalizację o CPU, dysk i limit Massive: token bucket z rezerwacją per worker,
+    globalny budżet wątków, obniżony priorytet procesu — nigdy dla egzekucji i API.
+
+14. **Bramka jakości ceny w egzekucji** (§C1). Niezależność W12 od workerów
+    analitycznych nie jest niezależnością od jakości danych: przeterminowana cena daje
+    `pending` z jawnym powodem, nie fill.
+
+---
+
+## CZEGO NIE ROBIĆ
+
+1. **Nie rozdzielać baz „im więcej, tym lepiej".** `signals.db`, `features.db`,
+   `chatgpt.db`, `nonstop.db` byłyby kosztem bez korzyści — te dane mają jednego
+   pisarza w tym samym łańcuchu i są czytane razem z cyklami. Kryterium podziału jest
+   **właściciel zapisu**, nie temat.
+
+2. **Nie robić transakcji przez granicę plików.** SQLite w WAL nie daje atomowego
+   commitu na wielu ATTACH-owanych bazach. Każda „szybka" próba spójności cross-DB
+   przez ATTACH + BEGIN to cicha korupcja logiczna.
+
+3. **Nie zaczynać migracji od `scanner_worker.py`.** 2222 linie, w środku IPO, nazwy,
+   kapitalizacje, cykle i sygnały. Rozbiór ma sens dopiero jako **E7**, gdy każdy jego
+   kawałek już działa osobno. Odwrotna kolejność to gwarantowany tydzień regresji.
+
+4. **Nie zostawiać dual-write jako stanu docelowego.** Dual-write to narzędzie migracji
+   z terminem. Dwóch pisarzy tego samego pola to dokładnie dzisiejszy problem
+   `universe`, tylko z nową nazwą.
+
+5. **Nie wprowadzać snapshotów-wypełniaczy.** Wersja albo jest `COMPLETE` z realnymi
+   licznikami, albo nie istnieje. „COMPLETE z count=0 i placeholder=true" wymusiło łaty
+   w r489, r521, r525, r529 i mimo tego warstwa 1D potrafiła stać godzinami.
+
+6. **Nie kolejkować przez `sleep()`.** Wzorzec `while other_task_running: sleep(0.5)`
+   (`resources.medium`) jest właśnie tą zależnością blokującą, którą usuwamy. Kolejka
+   to tabela ze stanem, nie pętla oczekiwania.
+
+7. **Nie pozwalać `GET`-om pobierać danych.** Ani na fundamenty, ani na newsy, ani na
+   ownership, ani na „szybkie uzupełnienie". Request może podnieść priorytet w kolejce
+   i tyle.
+
+8. **Nie liczyć BASE w więcej niż jednym miejscu.** Dziś progi są w `db.get_logic()`,
+   ocena w `universe_builder.build_universe`, ponowna ocena w `reevaluate_base`, a
+   `base_ok=0` ustawia też `universe_service` i naprawia `population`. Jeden właściciel:
+   W2. `population.py` ma już poprawną zasadę („nie zna progów BASE") — utrzymać ją.
+
+9. **Nie trzymać danych transakcyjnych w tym samym pliku co odbudowywalny cache.**
+   `_recover_corrupt_db()` w skrajnym przypadku odkłada cały plik na bok. Rejestr
+   transakcji i karty inwestycyjne nie są odbudowywalne.
+
+10. **Nie usuwać starych tabel w tej samej paczce, w której powstaje nowa ścieżka.**
+    Minimum jedna doba zdrowej pracy nowej ścieżki, dopiero potem usuwanie — osobną
+    paczką, z kopią bezpieczeństwa.
+
+11. **Nie mieszać priorytetów z kwalifikacją.** „Szybciej odświeżaj nowe IPO" nie może
+    oznaczać „IPO wchodzi do BASE inną ścieżką". Priorytet zmienia `ORDER BY`, nigdy
+    `WHERE`.
+
+12. **Nie uruchamiać warstw analitycznych po zegarku.** „W4 o 06:00" znaczy, że przy
+    spóźnionych świecach policzymy na niekompletnym zbiorze albo nie policzymy wcale.
+    Wyzwalaczem jest publikacja wersji źródłowej; godzina to najwyżej okno startu.
+
+13. **Nie handlować na przeterminowanej cenie.** Brak świeżej ceny to `pending` z jawnym
+    powodem — nigdy fill „bo jakaś cena była".
+
+14. **Nie budować projekcji odczytowej z góry.** `ATTACH read-only` wystarcza do E3.
+    Trzecia kopia tych samych danych powstaje wtedy i tylko wtedy, gdy pomiar czasu
+    endpointu to uzasadni.
+
+15. **Nie zakładać, że podział baz wystarczy.** Usuwa writer lock i tylko to. CPU, dysk
+    i limit dostawcy trzeba ograniczyć osobno — inaczej pięć równoległych workerów
+    wysyci limit Massive i zabierze świece skanerowi.
+
+16. **Nie liczyć konsumenta ponownie na tej samej wersji źródła.** „Brak nowej wersji"
+    to brak przebiegu, nie przebieg na starych danych. Wyjątek tylko dla konsumenta,
+    który ma drugie, nowsze wejście (W7 i cena bieżąca) — i wtedy zapisuje oba
+    `source_version_id`.
+
+17. **Nie polegać na `ALREADY_RUNNING` jako ochronie przed duplikatem przeliczenia.**
+    Ono patrzy na `job_type` w stanie aktywnym. Po restarcie i po podwójnym zdarzeniu
+    chroni dopiero `UNIQUE(job_type, source_version_id, config_hash)`.
+
+18. **Nie robić z W9 pisarza trzech baz — ani nie nanosić priorytetu po `SELECT`.**
+    Priorytet liczy jeden moduł, ale nanosi go właściciel kolejki w swoim pliku, osobną
+    krótką transakcją, **przed** wyborem rekordów. Nanoszenie tylko dla rekordów już
+    wybranych oznacza, że spółka z niskim zapisanym priorytetem nigdy nie zostanie wybrana.
+
+19. **Nie deduplikować jobów po jednym `source_version_id`.** W7 ma cztery wejścia,
+    a SQLite dopuszcza wiele `NULL` w indeksie UNIQUE. Kluczem jest `input_fingerprint`:
+    hash wszystkich wersji źródłowych, okna ceny, `config_hash` i `strategy_version`.
+
+20. **Nie potwierdzać BUY/SELL przed commitem.** Zadanie w pamięci executora nie jest
+    zleceniem przyjętym. Endpoint odpowiada po commicie albo odmawia jawnie — nigdy
+    „przyjęto" na podstawie samego wejścia do kolejki.
+
+21. **Nie używać timestampu jako jedynego kursora paginacji.** Wiele rekordów może mieć
+    tę samą sekundę, a `MAX(ts)` po partii z limitem cicho gubi resztę. Kursor to
+    monotoniczne `hint_id` albo krotka `(ts, symbol)`.
+
+22. **Nie omijać executora przy pracach porządkowych.** `VACUUM`, `wal_checkpoint`,
+    migracje schematu i backup piszą do pliku tak samo jak worker. Albo przechodzą przez
+    kolejkę danego pliku, albo po jego jawnym, kontrolowanym zatrzymaniu — nigdy
+    „obok", z drugiego połączenia.
+
+---
+
+## Zamknięcie dokumentu
+
+V4.4 zamyka fazę projektową. Dalsze decyzje powinny wynikać **z pomiarów**, nie z
+rozbudowy tego dokumentu:
+
+- `__pipeline()` — rzeczywisty łańcuch wersji i liczniki etapów,
+- `__baseDiag()` — histogram powodów odrzucenia BASE (przesądza o realnym koszcie R9),
+- `/health/resources` z E0 — punkt odniesienia dla wszystkich warunków wejścia do E2.
+
+Następny krok to **E0**: skrypt audytu „kto pisze do której tabeli" + `/health/resources`
+liczony z istniejących źródeł. Zero zmian w zachowaniu systemu.
+
+---
+
+## Załącznik: czego ten dokument nie rozstrzyga (potrzebne dane z działającego systemu)
+
+Trzy rzeczy, których nie da się ustalić z kodu i które warto zmierzyć przed E1:
+
+1. **Wynik `__pipeline()` z konsoli** — faktyczny łańcuch wersji i liczniki etapów
+   (ile spółek realnie wchodzi do TECHNICAL, gdzie łańcuch się rozjeżdża).
+2. **Wynik `__baseDiag()`** — histogram powodów odrzucenia BASE. Zdecyduje, czy
+   przeniesienie `fetch_market_cap` do W8 (R9) faktycznie zmieni liczbę BASE_OK,
+   czy `MISSING_MARKET_CAP` i tak dominuje.
+3. **Obserwacja, które procesy realnie się dziś blokują** — dokument wskazuje
+   9 zależności blokujących z kodu (E1–E9). Kolejność ich usuwania powinna wynikać
+   z tego, która najbardziej przeszkadza w praktyce, a nie z tego, która jest
+   najbrzydsza w kodzie.

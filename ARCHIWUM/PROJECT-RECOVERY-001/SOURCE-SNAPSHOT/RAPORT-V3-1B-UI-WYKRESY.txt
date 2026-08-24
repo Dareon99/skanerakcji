@@ -1,0 +1,95 @@
+V3.1B-UI - WYKRESY WALIDACYJNE
+DATA I CZAS: 15.08.2026 17:50:11,62
+
+CEL: reczna walidacja V3 na prawdziwych danych (porownanie z TradingView)
+WERSJA BACKENDU: 
+KOMPILACJA: PASS
+PELNA REGRESJA V3 (exit 0): PASS
+GENERACJA WYKRESOW (exit 1): FAIL
+
+ZRODLO DANYCH: MASSIVE ONLY (Yahoo: NIE, Stooq: NIE)
+1D: CANONICAL ANALYSIS (O/C native, H/L z kompletnej sesji 30m RTH)
+1H: CANONICAL REBUILT z 30m (kompletne kubelki z kalendarza NYSE)
+TYLKO BARY FINAL: TAK   OKNO WYKRESU: 120   PRE-ROLL PRODUKCYJNY: 500
+WSKAZNIKI: locked V3 (MACD/RSI/Stochastic)   CECHY: V3_FEATURE_ATOMIC_1
+EMA 20/50/100, poziomy RSI 70/50/30 i Stoch 80/50/20: RENDERER-ONLY
+(nie sa czescia cech, eventow ani scoringu)
+BEZ SCORINGU, BEZ BUY/SELL, BEZ INTEGRACJI Z PRODUKCJA
+
+DASHBOARD: C:\Skaner wykres¢w\backend\wyniki-v3-1\chart-validation\index.html
+=========================================================
+--- REGRESJA V3 (koncowka) ---
+  PASS  test_current_price_line_uses_last_final_close
+  PASS  test_panels_receive_locked_indicator_series
+  PASS  test_ui_guides_are_renderer_only
+  PASS  test_dashboard_is_self_contained_without_network
+  PASS  test_dashboard_has_no_trading_labels
+  PASS  test_dashboard_renders_required_panels_and_controls
+  --- v3.tests.test_chart_validation: 27 PASS / 0 FAIL
+
+==================================================
+test_macd                                      35 PASS / 0 FAIL
+test_macd_tv_parity                             8 PASS / 0 FAIL
+test_rsi                                       46 PASS / 0 FAIL
+test_rsi_tv_parity                              7 PASS / 0 FAIL
+test_stochastic                                33 PASS / 0 FAIL
+test_stochastic_tv_parity                       7 PASS / 0 FAIL
+test_market_data_contract                      39 PASS / 0 FAIL
+test_market_data_tv_reference                  14 PASS / 0 FAIL
+test_us_calendar                               17 PASS / 0 FAIL
+test_daily_analysis                            11 PASS / 0 FAIL
+test_warmup                                    11 PASS / 0 FAIL
+test_bucket_scope                               7 PASS / 0 FAIL
+test_preroll_study                             12 PASS / 0 FAIL
+test_feature_engine                            28 PASS / 0 FAIL
+test_chart_validation                          27 PASS / 0 FAIL
+TOTAL: 302 PASS / 0 FAIL
+
+--- GENERACJA WYKRESOW ---
+python.exe : Traceback (most recent call last):
+At line:1 char:1
++ & 'C:\Skaner wykres¢w\backend\.venv\Scripts\python.exe' v3\tools\char ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Skaner wykresów\backend\v3\tools\chart_validation.py", line 534, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Skaner wykresów\backend\v3\tools\chart_validation.py", line 500, in main
+    res = generate(a.out)
+  File "C:\Skaner wykresów\backend\v3\tools\chart_validation.py", line 384, in generate
+    universe = load_universe_rows()
+  File "C:\Skaner wykresów\backend\v3\tools\chart_validation.py", line 122, in load_universe_rows
+    import config
+  File "C:\Skaner wykresów\backend\config.py", line 13
+    VERSION = "2026-08-15-r550 (V3.1B-UI: widoczny postep generacji wykresow. TEST-V3-WYKRESY.bat wypisuje teraz WERSJE
+ BACKENDU na starcie (latwa kontrola, czy paczka zostala scalona) i pokazuje wyjscie kroku [3] NA ZYWO w oknie (Tee-Obj
+ect: jednoczesnie na ekran i do pliku), zamiast chowac je do pliku az do konca. chart_validation.py dostal pasek postep
+u [####....] N/19 z czasem, szacowanym pozostalym czasem i nazwa aktualnej spolki. Zero zmian w danych, wskaznikach, ce
+chach, kontraktach i w wygladzie samego dashboardu.)" Przebudowany dashboard: dominujacy panel ceny (~57%) ze swiecami,
+ wolumenem w dolnej czesci panelu, EMA 20/50/100 (bardzo delikatne, RENDERER-ONLY) i kropkowana linia ostatniego FINAL 
+zamkniecia z etykieta na prawej osi; pod spodem wyraznie oddzielone panele MACD (~17%), RSI (~12,5%) i Stochastic z kom
+paktowymi legendami biezacych wartosci. Wspolna os czasu i wspolna pionowa siatka dla wszystkich paneli, bardzo subteln
+a siatka pozioma, crosshair przez caly stos z jednym tooltipem, zoom kolkiem i pan przeciaganiem z synchronizacja wszys
+tkich paneli, przycisk Reset widoku. RSI dostal kanal 30/50/70 z delikatnymi strefami tla (chlodna nad 70, ciepla pod 3
+0), Stochastic analogicznie 20/50/80 - poziomy i strefy sa WYLACZNIE prowadnicami wizualnymi, nie progiem, eventem, cec
+ha ani scoringiem. Prawy panel zwezony do 236px, lewa lista spolek do 172px. EMA liczona z canonical FINAL CLOSE na pel
+nej serii z pre-rollem i dopiero potem przycinana do okna 120. Nowe testy UI (10). ZERO zmian w MACD, RSI, Stochastic, 
+Feature Engine, V3_FEATURE_ATOMIC_1, V3_BAR_CONTRACT_1, canonical market data, H/L policy, pre-roll i warmup; zero nowy
+ch zaleznosci i zero fetch po wygenerowaniu.)"
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+                                            ^
+SyntaxError: invalid decimal literal
+=========================================================
+KONIEC RAPORTU

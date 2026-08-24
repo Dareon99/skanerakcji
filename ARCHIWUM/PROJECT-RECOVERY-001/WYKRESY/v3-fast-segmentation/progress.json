@@ -1,0 +1,23 @@
+{
+ "status": "REBUILD",
+ "diag_version": "FAST_SEG_1",
+ "dashboard_symbols": [
+  "AAOI",
+  "ADTN",
+  "INTU",
+  "NVDA",
+  "PLTR",
+  "RBLX"
+ ],
+ "done": [
+  "AAOI",
+  "ADTN",
+  "INTU",
+  "NVDA",
+  "PLTR",
+  "RBLX"
+ ],
+ "errors": [],
+ "timings": {},
+ "generated": "14:29:52 · 6/6 symboli · TF 30/30 · REBUILD"
+}

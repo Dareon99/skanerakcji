@@ -1,0 +1,40 @@
+# Sekrety i konfiguracja lokalna
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+**/*api_key*
+**/*secret*
+**/*credential*
+**/*token*.txt
+
+# Bazy i dane runtime
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.wal
+*.shm
+*.pkl
+*.zip
+*.7z
+DATA-*/
+BACKUP-*/
+
+# Cache, środowiska i logi
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# Pliki systemowe i edytorów
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.codex/
+.claude/settings.local.json

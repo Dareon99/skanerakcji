@@ -1,0 +1,66 @@
+# Sekrety i dane lokalne
+.env
+.env.*
+!.env.example
+**/polygon_key.txt
+**/massive_key.txt
+**/api_key.txt
+**/*credentials*.json
+**/*secret*.json
+
+# Bazy i pliki SQLite
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.pkl
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logi i runtime
+*.log
+*.pid
+*.tmp
+*.bak
+*.lock
+*.zip
+*.7z
+backend/logs/
+backend/tmp/
+backend/cache/
+
+# Lokalne backupy i paczki instalacyjne — pozostają na dysku, nie w Git
+/BACKUP-*/
+/DATA-*/
+/C0-*/
+/C1-*/
+/C2-*/
+/REGRESSION-*/
+/master projekt z 21.08.2026/
+/backend/BACKUP-*/
+/backend/_backup-*/
+/backend/*-RESULTS/
+/backend/MASSIVE-TRAFFIC-MEASUREMENT/
+
+# Wygenerowane ciężkie wyniki — frozen kopie dokumentacyjne są dozwolone w DOKUMENTACJA/ARCHIWUM
+/wyniki-v3-*/
+/backend/wyniki-v3-*/
+
+# Edytory i system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Codex/Claude lokalne dane sesji
+.codex/
+.claude/settings.local.json
