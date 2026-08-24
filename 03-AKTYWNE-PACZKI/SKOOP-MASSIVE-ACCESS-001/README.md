@@ -1,42 +1,45 @@
 # SKOOP-MASSIVE-ACCESS-001
 
-```text
-STATUS: GATE A PASS — AWAITING USER REVIEW; GATE B BLOCKED
+~~~text
+STATUS: GATE B PASS WITH SOURCE/PLAN LIMITATIONS — AWAITING USER ACCEPTANCE
 AREA: PROVIDER-ACCESS (MASSIVE)
-RUNTIME LEVEL: L3 OFFLINE PACKAGE; NO PROVIDER TRAFFIC
-NETWORK/MASSIVE: NOT USED, NOT AUTHORIZED
-SECRETS: NOT READ, NOT WRITTEN, NOT REQUESTED
-DATABASE WRITE: NONE
-```
+RUNTIME LEVEL: L4 CONTROLLED SMOKE TEST COMPLETE; PRODUCT IMPORT NOT STARTED
+NETWORK/MASSIVE: 29 CONTROLLED REQUESTS; HARD CEILING 50
+SECRETS: LOCAL KEY USED; VALUE NOT STORED IN DOCS, LOGS OR EVIDENCE
+DATABASE WRITE: EVIDENCE SQLITE ONLY; PRODUCT/OLD DATABASES NONE
+FINAL KILL SWITCH: ON
+~~~
 
-## Cel
+## Cel i wynik
 
-Bezpieczne przygotowanie dostępu nowego SKOOP do Massive: przechowanie klucza,
-podanie go aplikacji bez ujawnienia, minimalny test połączenia, smoke test
-zakresu subskrypcji, ochrona przed niekontrolowanym zużyciem API, kill switch,
-tryb testowy i kryteria akceptacji — zanim rozpocznie się pobieranie UNIVERSE.
+Paczka przygotowała bezpieczny dostęp SKOOP do Massive i wykonała wyłącznie
+zaakceptowany smoke test. Nie uruchomiła importu UNIVERSE ani stałej integracji.
 
-Paczka NIE pobiera danych, NIE używa klucza i NIE uruchamia integracji.
+Gate A: PASS. Gate B: PASS WITH SOURCE/PLAN LIMITATIONS. Szczegóły i wiążące
+korekty użytkownika znajdują się w 07-GATE-B-TEST-EVIDENCE.md.
 
-## Gate
+## Najważniejsze ustalenia
 
-1. `01-SPEC.md` — kompletny, statusy braków jawne;
-2. `02-AUDIT.md` — wykonany read-only na repozytorium `Dareon99/skanerakcji@6fe1bcc`;
-3. `03-CONFLICT-REPORT.md` — CM-01…CM-05 zamknięte decyzjami użytkownika;
-4. `04-USER-DECISIONS.md` — **UD-M-01…UD-M-07 ACCEPTED 2026-08-24**;
-5. `05-IMPLEMENTATION-CONTRACT.md` — `ACCEPTED REV. 2 — GATE A AUTHORIZED / GATE B BLOCKED`;
-6. `ANEKS-D-007-DO-WPISANIA.md` — gotowy tekst append-only dla rejestru decyzji;
-7. `10-GATE-A-LOCAL-EXECUTION-HANDOFF.md` — kompletny handoff wykonania lokalnego;
-8. w środowisku Claude: implementacja, klucz, sieć, SQL i UI — zabronione (brak dostępu do ścieżek lokalnych; STOP rule).
-9. 06-TEST-EVIDENCE.md — lokalny Gate A PASS; 9/9 testów; 12/12 plików; Gate B BLOCKED.
+- wymagane 5 lat historii 1D: CONFIRMED;
+- dłuższa historia: poza wymaganiem SKOOP, dostępna użytkownikowi w TradingView;
+- sektor/branża: kanoniczna klasyfikacja własna SKOOP, nazwy synchronizowane z TradingView;
+- Massive SIC: informacja pomocnicza do mapowania;
+- finanse kwartalne/TTM: UNAVAILABLE_IN_CURRENT_PLAN;
+- import UNIVERSE: NOT STARTED;
+- OLD i frozen bazy: bez zmian;
+- kill switch: ON.
 
-## Wejścia (źródła prawdy)
+## Dokumenty paczki
 
-Zamrożony kontrakt `ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001`
-(spec frozen w `c76014c`, metadane w `6fe1bcc`), `MASTER-PROJEKT.md`,
-`STAN-AKTUALNY.md`, `04-DECYZJE/DECYZJE-PROJEKTOWE.md` (D-009–D-016),
-`00-STEROWANIE/DOSTEPY-I-BEZPIECZENSTWO.md`.
+1. 01-SPEC.md;
+2. 02-AUDIT.md;
+3. 03-CONFLICT-REPORT.md;
+4. 04-USER-DECISIONS.md;
+5. 05-IMPLEMENTATION-CONTRACT.md;
+6. 06-TEST-EVIDENCE.md — Gate A;
+7. 07-GATE-B-TEST-EVIDENCE.md — Gate B rev. 2;
+8. 09-SESSION-HANDOFF.md;
+9. 10-GATE-A-LOCAL-EXECUTION-HANDOFF.md;
+10. ANEKS-D-007-DO-WPISANIA.md.
 
-## Stan bezpieczny
-
-OLD, frozen bazy, placeholder SKOOP i klucz użytkownika pozostają nietknięte.
+Dokładnie jeden następny krok: USER ACCEPTANCE OF GATE B RESULTS.
