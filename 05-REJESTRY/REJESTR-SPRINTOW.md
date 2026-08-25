@@ -14,4 +14,6 @@
 | SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001 | 2026-08-24 | finalny logiczny kontrakt UNIVERSE–BASE–IPO, listingów i harmonogramu | DOCS-2026-08-24-01 → DOCS-2026-08-24-02; runtime bez zmian | `ACCEPTED / FROZEN` | finalny SPEC zaakceptowany; 21/21 decyzji; gate dokumentacji PASS; brak kodu/baz/Massive | `../ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` | decision commit `aaf4a19`; final freeze commit do zapisania po push |
 | SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001-FREEZE-METADATA | 2026-08-24 | zapis identyfikatora finalnej wersji zamrozonej paczki | bez zmiany dokumentow paczki i runtime | `ACCEPTED / FROZEN` | local commit and GitHub push PASS | `../ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` | final freeze commit `c76014c` |
 
+| SKOOP-MASSIVE-ACCESS-001 | 2026-08-25 | izolowany dostęp Massive, Gate A offline i kontrolowany Gate B | foundation placeholder → lokalna paczka dostępu; DOCS-2026-08-25-01 | `ACCEPTED / FROZEN` | 29/50 żądań; 5 lat 1D CONFIRMED; kill switch ON; UNIVERSE 0; OLD bez zmian | `../ARCHIWUM/SKOOP-MASSIVE-ACCESS-001` | commit freeze do uzupełnienia po push |
+
 Nowych wierszy nie dopisuje się nad istniejącymi i nie usuwa wpisów anulowanych. Statusy: `PROPOSED`, `IN PROGRESS`, `BLOCKED`, `REJECTED`, `ACCEPTED`, `FROZEN`, `SUPERSEDED`.

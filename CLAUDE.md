@@ -16,10 +16,11 @@ Przeczytaj w całości, w tej kolejności:
 7. wszystkie pliki aktywnej paczki wskazanej w
    `03-AKTYWNE-PACZKI/README.md`.
 
-Dla bieżącego kontraktu przeczytaj szczególnie:
+Dla ostatniej ukończonej paczki przeczytaj szczególnie:
 
-- `03-AKTYWNE-PACZKI/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001/10-CLAUDE-EXECUTION-SPEC.md`;
-- `03-AKTYWNE-PACZKI/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001/11-CLAUDE-START-COMMAND.md`.
+- `ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/12-FINAL-AS-BUILT-SPEC.md`;
+- `ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/11-ACCEPTANCE.md`;
+- `ARCHIWUM/SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001/08-FINAL-AS-BUILT.md`.
 
 ## Zasady dostępu przez GitHub
 
@@ -34,14 +35,15 @@ Dla bieżącego kontraktu przeczytaj szczególnie:
 
 ## Bieżący gate
 
-Kontrakt `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` ma status `ACCEPTED/FROZEN` jako
-logiczny SPEC. Nie istnieje jeszcze aktywna paczka implementacyjna. Kod, SQL, baza,
-runtime, sekret i Massive pozostają nieautoryzowane do jawnej akceptacji osobnego
-kontraktu małej paczki.
+`SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001` oraz `SKOOP-MASSIVE-ACCESS-001` mają
+status `ACCEPTED/FROZEN`. Gate B zakończył się licznikiem 29/50, kill switch ON,
+bez importu UNIVERSE i bez zmian OLD. Pięć lat historii 1D jest potwierdzone.
+Sektor/branża są kanonicznym mapowaniem SKOOP synchronizowanym z TradingView;
+SIC Massive jest informacją pomocniczą.
 
-Bez takiej akceptacji nie zmieniaj kodu, SQL, bazy, runtime ani konfiguracji, nie
-używaj Massive i nie uruchamiaj workerów. Najpierw zwróć raport otwarcia sesji
-określony w `10-CLAUDE-EXECUTION-SPEC.md`.
+Nie istnieje aktywna paczka implementacyjna. Następna paczka jest tylko
+proponowana: `SKOOP-UNIVERSE-IMPORT-001`. Bez jej SPEC, audytu, decyzji i
+zaakceptowanego Implementation Contract nie wolno wykonywać importu, paginacji,
+tworzyć bazy produktu, uruchamiać workerów ani stałego ruchu Massive.
 
-`UD-01–UD-06` i `UD-09` zostały zaakceptowane 2026-08-24 i zapisane jako
-`D-009` oraz `D-011–D-016`.
+Decyzje wiążące: D-009–D-019, z zachowaniem ich zakresów i SUPERSEDES.

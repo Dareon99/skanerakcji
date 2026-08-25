@@ -1,10 +1,10 @@
 # STAN AKTUALNY — SKANER WYKRESÓW
 
 **Data snapshotu danych:** 2026-08-21  
-**Data aktualizacji operacyjnej:** 2026-08-24
+**Data aktualizacji operacyjnej:** 2026-08-25
 **Wersja kodu:** `2026-08-21-r599`  
-**Status dokumentu:** `CONFIRMED — LEGACY FROZEN / SKOOP CONTRACT IN PROGRESS`  
-**Wersja dokumentacji:** `DOCS-2026-08-24-02`
+**Status dokumentu:** `CONFIRMED — LEGACY FROZEN / MASSIVE ACCESS ACCEPTED / UNIVERSE IMPORT NOT STARTED`
+**Wersja dokumentacji:** `DOCS-2026-08-25-01`
 
 ## 1. Najważniejszy stan operacyjny
 
@@ -24,9 +24,9 @@
 | Integracja V3 z głównym UI | `NOT IMPLEMENTED / CONFIRMED` | narzędzia i raporty V3 były walidacją poza produkcją |
 | Archiwum „Skaner sygnałów kupna” | `IMPORTED / MERGED / FROZEN` | 15 plików, manifest 14/14 PASS; ZIP SHA-256 `f2075b...529a` |
 | Freeze OLD | `COMPLETED` | `C:\SKOOP-ARCHIWUM\LEGACY-SCANNER-FREEZE-20260821-001` |
-| Nowy produkt | `FOUNDATION PLACEHOLDER / DATA CONTRACT IN PROGRESS` | aktywna paczka `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001`; bez Massive, workerów i bazy nowego produktu |
+| Nowy produkt | `FOUNDATION PLACEHOLDER / MASSIVE ACCESS PACKAGE ACCEPTED` | kontrakt danych i dostęp Massive zamrożone; import UNIVERSE, worker i baza produktu jeszcze nieuruchomione |
 | Stock Scanner OLD UI | `IMPLEMENTED / READ ONLY` | listing, szczegół spółki i lokalne wykresy z frozen SQLite |
-| Dalsze pobieranie na tym komputerze | `CANCELLED / NOT REQUIRED` | istniejąca próbka zaakceptowana; pełny żywy skaner działa na drugim komputerze |
+| Dalsze pobieranie na tym komputerze | `OLD CANCELLED / SKOOP PACKAGE-CONTROLLED` | OLD nie pobiera nigdy; nowy SKOOP może korzystać z Massive wyłącznie w zaakceptowanych paczkach (D-017/D-018) |
 | GitHub dokumentacji | `PUBLISHED / CONNECTED` | `Dareon99/skanerakcji`, branch `main`; Claude zaczyna od repozytoryjnego `CLAUDE.md` |
 
 ## 2. Decyzja operacyjna po diagnozie wykresów
@@ -64,19 +64,22 @@ Odzyskany renderer V3 pozostaje wartościowym kontraktem do ponownej integracji 
 - nie zmieniono kodu produkcyjnego;
 - nie podłączono V3 do głównego UI;
 - utworzono `C:\SKOOP Skaner wykresów` z placeholderem SKOOP i OLD read-only; nowa baza SKOOP nadal nie istnieje;
-- nie użyto klucza Massive i nie wykonano żądań nowego produktu;
+- zainstalowano izolowaną paczkę dostępu Massive; Gate B zaakceptowany po 29/50 kontrolowanych żądaniach; kill switch ON;
+- potwierdzono pięć lat historii 1D; import UNIVERSE, paginacja katalogu i stały ruch nie zostały uruchomione;
+- finanse kwartalne/TTM są niedostępne w obecnym planie; SIC jest pomocnicze, a sektor/branża pozostają mapowaniem własnym SKOOP zgodnym z TradingView;
 - na decyzję użytkownika nie uzupełniano braków danych; próbka OLD jest finalnym zakresem tego komputera;
 - nie uznano niepotwierdzonych elementów alarmów ani scoringu za odzyskane.
 
 ## 5. Najkrótsza bezpieczna droga do wznowienia procesu inwestycyjnego
 
-Aktywna paczka: `SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001`, etap `USER DECISIONS`.
+Brak aktywnej paczki implementacyjnej. Ostatnia ukończona:
+`SKOOP-MASSIVE-ACCESS-001 — ACCEPTED / FROZEN`.
 
 Kolejność programu:
 
 1. `DONE` — niezależny fundament w `C:\SKOOP Skaner wykresów`, bez sieci i workerów;
-2. `IN PROGRESS` — kontrakt UNIVERSE–BASE–IPO i pól listingu;
-3. `SKOOP-MASSIVE-ACCESS-001`: lokalny sekret, maskowanie, jeden tani smoke request i weryfikacja bieżących limitów;
+2. `DONE / FROZEN` — kontrakt UNIVERSE–BASE–IPO i pól listingu;
+3. `DONE / FROZEN` — `SKOOP-MASSIVE-ACCESS-001`: lokalny sekret, maskowanie, kill switch i zaakceptowany smoke test;
 4. `SKOOP-UNIVERSE-IMPORT-001`: pobranie surowego uniwersum instrumentów;
 5. `SKOOP-COMPANY-RESOURCES-001`: kwalifikacja spółek i arkusz/model każdej spółki;
 6. `SKOOP-COMPANY-LISTING-DESIGN-001`: projekt graficzny UNIVERSE/BASE/IPO,
@@ -108,10 +111,10 @@ Braki należy oznaczać `UNVERIFIED` albo `TO RECOVER`; nie wolno ich uzupełnia
 
 | Pole | Stan |
 |---|---|
-| Wersja dokumentacji | `DOCS-2026-08-24-02` |
+| Wersja dokumentacji | `DOCS-2026-08-25-01` |
 | Kanoniczna lokalizacja robocza | bieżący lokalny katalog `SYSTEM-PRACY-SKANERA\DOKUMENTACJA` |
 | Zdalny mirror dokumentacji | `https://github.com/Dareon99/skanerakcji`, `main`, pierwszy commit `5218bf2` |
-| Decyzje systemowe | `D-003 ACCEPTED`; `D-006 ACCEPTED`; `D-007 ACCEPTED`; `D-009–D-016 ACCEPTED` |
+| Decyzje systemowe | `D-003`; `D-006–D-019 ACCEPTED` z zachowaniem zakresów i wpisów SUPERSEDES |
 | Protokół ChatGPT/Codex/Claude | zainstalowany |
 | Szablony pełnego workflow | zainstalowane |
 | Automatyczna kontrola systemu/hashów | `FAIL=0 / WARN=2`; wymagane pliki i wszystkie frozen manifesty PASS; WARN: niezatwierdzone zmiany Git i brak remote |
@@ -162,3 +165,23 @@ prawdy o tym, co użytkownik otrzymuje po kliknięciu OLD.
 | Następny krok | osobna paczka `SKOOP-MASSIVE-ACCESS-001` od SPEC/AUDIT; bez użycia klucza przed kontraktem |
 | Przekazanie do Claude | finalny logiczny SPEC zaakceptowany; Claude nie ma zgody na kodowanie ani Massive |
 | Dostęp Claude przez GitHub | `READY`; lokalna ścieżka Windows nie jest wymagana do odczytu dokumentacji |
+
+
+## 10. Zaakceptowany dostęp Massive — 2026-08-25
+
+| Pole | Stan |
+|---|---|
+| Package ID | `SKOOP-MASSIVE-ACCESS-001` |
+| Gate A / Gate B | `PASS / ACCEPTED` |
+| Żądania | `29/50`, sekwencyjne, bez importu i bez paginacji |
+| Klucz | lokalny, poza repo i dokumentacją |
+| Kill switch | `ON` |
+| 5 lat historii 1D | `CONFIRMED` |
+| Dłuższa historia | poza wymaganiem; TradingView |
+| SIC | dane pomocnicze Massive |
+| Sektor/branża | kanoniczne mapowanie SKOOP synchronizowane z TradingView |
+| Finanse kwartalne/TTM | `UNAVAILABLE_IN_CURRENT_PLAN` |
+| UNIVERSE | `NOT IMPORTED` |
+| Nowa baza produktu | `NOT CREATED` |
+| OLD | `UNCHANGED / FROZEN / OFFLINE` |
+| Następny proponowany krok | osobna paczka `SKOOP-UNIVERSE-IMPORT-001` od SPEC |

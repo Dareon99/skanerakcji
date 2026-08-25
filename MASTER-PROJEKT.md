@@ -1273,3 +1273,37 @@ Najważniejsze obowiązujące decyzje:
 Akceptacja tego kontraktu nie jest zgodą na implementację. Następny proponowany
 etap to osobna paczka `SKOOP-MASSIVE-ACCESS-001`, rozpoczynana od SPEC/AUDIT i bez
 użycia klucza przed zaakceptowaniem jej Implementation Contract.
+
+
+## 24. Zaakceptowany dostęp Massive nowego SKOOP — D-017, D-018, D-019
+
+**Status 2026-08-25:** `SKOOP-MASSIVE-ACCESS-001 ACCEPTED / FROZEN`.
+
+Kanoniczny AS-BUILT:
+
+`ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/12-FINAL-AS-BUILT-SPEC.md`
+
+Stan potwierdzony:
+
+- lokalny kod paczki: `C:\SKOOP Skaner wykresów\PACKAGES\SKOOP-MASSIVE-ACCESS-001`;
+- root danych nowego SKOOP: `C:\SKOOP-dane`;
+- klucz: wyłącznie lokalnie w `C:\SKOOP-dane\secrets\massive_key.txt`, poza Git,
+  dokumentacją, logami i archiwum;
+- Gate A: PASS; Gate B: ACCEPTED; 29/50 kontrolowanych żądań;
+- kill switch po teście: ON;
+- import UNIVERSE: 0; nowa baza produktu: nieutworzona;
+- OLD: bez zmian; zakaz providerów i workerów OLD pozostaje bezterminowy;
+- pięć lat historii 1D: CONFIRMED;
+- dłuższe horyzonty: sprawdzane przez użytkownika w TradingView;
+- SIC Massive: informacja pomocnicza;
+- kanoniczne sektor/branża: mapowanie własne SKOOP, nazwy i taksonomia
+  synchronizowane z TradingView, z wersją, provenance i ręcznym override;
+- finanse kwartalne/TTM: `UNAVAILABLE_IN_CURRENT_PLAN`;
+- grouped daily, 1D, 30m, IPO, FX, dywidendy, status rynku i katalog
+  instrumentów: potwierdzone w zakresie smoke testu;
+- float, splity i pasywne nagłówki rate-limit: `UNVERIFIED/PARTIAL` zgodnie z AS-BUILT.
+
+Akceptacja tej paczki nie jest zgodą na import. Następna proponowana paczka to
+`SKOOP-UNIVERSE-IMPORT-001`, rozpoczynana od pełnego workflow i osobnego
+Implementation Contract. Projekt graficzny listingów nadal pozostaje
+obowiązkowym gate przed implementacją listingów.

@@ -10,4 +10,6 @@
 | DOCS-2026-08-24-01 | 2026-08-24 | GITHUB-DOCS-PUBLISH-20260824-001 | pierwszy bezpieczny push dokumentacji do `Dareon99/skanerakcji`; repozytoryjny start Claude; ochrona sekretów i baz | README, CLAUDE, STAN, Git/access, rejestry i AS-BUILT | `PUBLISHED / FROZEN` |
 | DOCS-2026-08-24-02 | 2026-08-24 | SKOOP-UNIVERSE-BASE-IPO-CONTRACT-001 | zaakceptowany kontrakt UNIVERSE/BASE/IPO, trzy listingi, projekt UI gate, priorytety T0–T4, wykresy, waluty i harmonogram | MASTER, STAN, decyzje, aktywna paczka, rejestry i AS-BUILT | `ACCEPTED / FROZEN` |
 
+| DOCS-2026-08-25-01 | 2026-08-25 | SKOOP-MASSIVE-ACCESS-001 | zaakceptowany dostęp Massive; 29/50 kontrolowanych żądań; 5 lat historii; taksonomia SKOOP zgodna z TradingView; bez importu UNIVERSE | MASTER, STAN, CLAUDE, decyzje, rejestry, ACCEPTANCE i FINAL-AS-BUILT | `ACCEPTED / FROZEN` |
+
 Zmiana po FREEZE wymaga nowej wersji `DOCS-YYYY-MM-DD-NN`. Changelog nie zastępuje decyzji ani AS-BUILT.

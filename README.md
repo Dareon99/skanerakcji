@@ -8,6 +8,11 @@ Repozytorium dokumentacji: `https://github.com/Dareon99/skanerakcji` (`main`).
 
 > **Stan 2026-08-22:** nowy SKOOP jest widokiem domyślnym na porcie 8000. `Stock Scanner OLD` otwiera oryginalny interfejs r599 1:1 na porcie 8001, z zamrożonymi zasobami i twardą blokadą providerów, workerów oraz zapisu (D-008). Dalsze pobieranie danych na tym komputerze pozostaje anulowane decyzją D-007; pełny żywy skaner pozostaje na drugim komputerze.
 
+> **Stan 2026-08-25:** D-007 nadal bezterminowo blokuje pobieranie przez OLD.
+> D-017/D-018 zezwalają nowemu SKOOP na Massive wyłącznie w zaakceptowanych,
+> izolowanych paczkach. `SKOOP-MASSIVE-ACCESS-001` jest ACCEPTED/FROZEN po
+> 29 kontrolowanych żądaniach; kill switch ON; UNIVERSE niezaimportowany.
+
 ## Dokumenty wejściowe
 
 | Kolejność | Dokument | Rola | Aktualizacja |

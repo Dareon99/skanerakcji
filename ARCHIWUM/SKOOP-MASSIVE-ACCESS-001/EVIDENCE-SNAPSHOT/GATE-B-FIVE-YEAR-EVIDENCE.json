@@ -1,0 +1,31 @@
+{
+  "field_paths": [
+    "adjusted",
+    "count",
+    "queryCount",
+    "request_id",
+    "results",
+    "resultsCount",
+    "results[]",
+    "results[].c",
+    "results[].h",
+    "results[].l",
+    "results[].n",
+    "results[].o",
+    "results[].t",
+    "results[].v",
+    "results[].vw",
+    "status",
+    "ticker"
+  ],
+  "latency_ms": 454,
+  "next_page_present": false,
+  "package": "SKOOP-MASSIVE-ACCESS-001",
+  "purpose": "PRODUCT_REQUIREMENT_FIVE_YEAR_HISTORY",
+  "request_count": 29,
+  "requested_range": "2021-08-24/2021-09-03",
+  "scenario_id": "S12",
+  "status": "CONFIRMED",
+  "status_code": 200,
+  "values_stored": false
+}

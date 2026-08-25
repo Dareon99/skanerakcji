@@ -1,0 +1,50 @@
+{
+  "package": "SKOOP-MASSIVE-ACCESS-001",
+  "gate": "A_OFFLINE",
+  "timestamp_utc": "2026-08-24T12:49:09.3608566Z",
+  "quality_gate": {
+    "py_compile": "PASS_9",
+    "ast": "PASS_9",
+    "invalid_escape_static_sanity": "PASS",
+    "offline_tests": "PASS_9_OF_9",
+    "secret_scan": "PASS_0_UNEXPECTED",
+    "old_imports": "PASS_0",
+    "allowed_write_paths": "PASS_0_OUTSIDE",
+    "kill_switch": "PASS_ON_AND_PERSISTENT",
+    "fail_closed": "PASS",
+    "package_integrity": "PASS_12_OF_12"
+  },
+  "network": {
+    "massive": 0,
+    "yahoo": 0,
+    "other_providers": 0,
+    "transport_in_tests": "IN_MEMORY_FAKE_ONLY"
+  },
+  "secret": {
+    "real_key_file_exists": false,
+    "real_key_read": false,
+    "real_key_written": false
+  },
+  "protected": {
+    "frozen_databases": "MATCH_3_OF_3",
+    "old_tree_copy": "MATCH",
+    "old_tree_original": "MATCH",
+    "placeholder": "MATCH"
+  },
+  "files": [
+    "access_log.py",
+    "config_access.py",
+    "KILL-SWITCH-OFF.bat",
+    "KILL-SWITCH-ON.bat",
+    "massive_connection.py",
+    "massive_fetch.py",
+    "README-URUCHOMIENIE.md",
+    "sandbox_store.py",
+    "secret_loader.py",
+    "smoke_test.py",
+    "test_access_offline.py",
+    "traffic_guard.py"
+  ],
+  "known_correction": "SQLite connections are explicitly committed and closed after offline test exposed a Windows handle leak",
+  "gate_b": "BLOCKED"
+}

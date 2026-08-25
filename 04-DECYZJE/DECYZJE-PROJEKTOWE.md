@@ -292,3 +292,37 @@ SUPERSEDES: zakres D-007 wyłącznie w części odnoszącej się do nowego SKOOP
 zakaz dla OLD pozostaje bez zmian.
 AFFECTED VERSION: dokumentacja; runtime bez zmian.
 
+
+
+## D-018
+DATE: 2026-08-25
+STATUS: ACCEPTED
+SOURCE: `WYNIKI GATE B — AKCEPTUJĘ`
+DECISION: Paczka `SKOOP-MASSIVE-ACCESS-001` oraz wyniki Gate A/Gate B są
+zaakceptowane. Kontrolowany test zakończył się licznikiem 29/50, bez importu
+UNIVERSE, bez zapisów do OLD i ze stanem końcowym kill switch ON. Pakiet dostępu
+zostaje zamrożony; akceptacja nie zezwala na stały ruch, import ani utworzenie
+bazy produktu. Następny etap wymaga osobnej paczki `SKOOP-UNIVERSE-IMPORT-001`.
+RATIONALE: dostęp, bezpieczeństwo, zakres planu i podstawowe endpointy zostały
+sprawdzone realnym testem, a ograniczenia źródła są jawne i zaakceptowane.
+SUPERSEDES: status Gate B BLOCKED oraz stan Massive nieautoryzowany dla nowego
+SKOOP; nie zmienia zakazu dla OLD ani package isolation.
+AFFECTED VERSION: `DOCS-2026-08-25-01`; lokalna paczka dostępu zainstalowana,
+produktowa baza i import bez zmian.
+
+## D-019
+DATE: 2026-08-25
+STATUS: ACCEPTED
+SOURCE: korekty użytkownika po Gate B dotyczące historii i klasyfikacji
+DECISION: SKOOP przechowuje i wykorzystuje historię do 5 lat; dłuższe okresy
+użytkownik sprawdza w TradingView. Massive dostarcza surową informację
+klasyfikacyjną, w tym SIC, lecz kanoniczne `canonical_sector` i
+`canonical_industry` nadaje SKOOP. Nazwy i taksonomia są synchronizowane z
+TradingView. Mapowanie przechowuje wersję, źródło, czas zmiany użytkownika,
+historię i ręczny override; ręczna korekta ma pierwszeństwo do jawnego cofnięcia.
+RATIONALE: pięć lat pokrywa potrzeby wykresów i strategii SKOOP bez zbędnego
+kosztu, a zgodna z TradingView klasyfikacja zapewnia spójność pracy użytkownika
+niezależnie od niepełnej taksonomii providera.
+SUPERSEDES: traktowanie historii z 2010 r. jako wymagania produktu oraz
+traktowanie sektora/branży Massive jako kanonicznej klasyfikacji SKOOP.
+AFFECTED VERSION: `DOCS-2026-08-25-01`; runtime danych jeszcze nieutworzony.

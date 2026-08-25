@@ -1,0 +1,107 @@
+{
+  "S0": {
+    "endpoint_path": "/v1/marketstatus/now",
+    "params": {},
+    "review_note": "Najtanszy odczyt kontrolny autoryzacji; endpoint oficjalnie udokumentowany."
+  },
+  "S1": {
+    "endpoint_path": "/v3/reference/tickers",
+    "params": {
+      "market": "stocks",
+      "active": "true",
+      "order": "asc",
+      "limit": 10,
+      "sort": "ticker"
+    },
+    "review_note": "Jedna mala strona; bez podazania za next_url i bez importu UNIVERSE."
+  },
+  "S2": {
+    "endpoint_path": "/v3/reference/tickers/AAPL",
+    "params": {},
+    "review_note": "Szczegoly instrumentu referencyjnego."
+  },
+  "S3": {
+    "endpoint_path": "/v3/reference/tickers/AAPL",
+    "params": {},
+    "review_note": "Kontrola SIC i opisow klasyfikacji; sektor/branza maja zostac ocenione bez zgadywania."
+  },
+  "S4": {
+    "endpoint_path": "/v3/reference/tickers/AAPL",
+    "params": {},
+    "review_note": "Kontrola market_cap, share_class_shares_outstanding i weighted_shares_outstanding."
+  },
+  "S5": {
+    "endpoint_path": "/stocks/financials/v1/income-statements",
+    "params": {
+      "tickers": "AAPL",
+      "limit": 10,
+      "sort": "period_end.desc"
+    },
+    "review_note": "Jedna strona wynikow kwartalnych i TTM, o ile sa dostepne w planie."
+  },
+  "S6": {
+    "endpoint_path": "/vX/reference/ipos",
+    "params": {
+      "order": "desc",
+      "limit": 10,
+      "sort": "listing_date"
+    },
+    "review_note": "Eksperymentalna wersja sciezki zapisana doslownie zgodnie z oficjalna dokumentacja Massive."
+  },
+  "S7": {
+    "endpoint_path": "/v2/aggs/ticker/AAPL/range/1/day/2026-08-10/2026-08-21",
+    "params": {
+      "adjusted": "true",
+      "sort": "asc",
+      "limit": 20
+    },
+    "review_note": "Krotki zakres 1D zakonczony ostatnim zamknietym dniem roboczym przed testem."
+  },
+  "S7b": {
+    "endpoint_path": "/v2/aggs/grouped/locale/us/market/stocks/2026-08-21",
+    "params": {
+      "adjusted": "true"
+    },
+    "review_note": "Jedna odpowiedz zbiorcza z jednego dnia; nie jest zapisywana do UNIVERSE."
+  },
+  "S8": {
+    "endpoint_path": "/v2/aggs/ticker/AAPL/range/30/minute/2026-08-20/2026-08-21",
+    "params": {
+      "adjusted": "true",
+      "sort": "asc",
+      "limit": 200
+    },
+    "review_note": "Krotki zakres swiec 30m."
+  },
+  "S9": {
+    "endpoint_path": "/v1/marketstatus/upcoming",
+    "params": {},
+    "review_note": "Nadchodzace swieta i zmienione godziny; pelne fazy sesji oceniane oddzielnie bez zgadywania."
+  },
+  "S10": {
+    "endpoint_path": "/v2/aggs/ticker/C:EURUSD/range/1/day/2026-08-20/2026-08-21",
+    "params": {
+      "sort": "asc",
+      "limit": 10
+    },
+    "review_note": "Jedna para FX i krotki zakres."
+  },
+  "S11": {
+    "endpoint_path": "/stocks/v1/dividends",
+    "params": {
+      "ticker": "AAPL",
+      "limit": 10,
+      "sort": "ex_dividend_date.desc"
+    },
+    "review_note": "To pojedyncze zadanie sprawdza dywidendy. Splity pozostaja UNVERIFIED w tym 14-zadaniowym smoke tescie."
+  },
+  "S12": {
+    "endpoint_path": "/v2/aggs/ticker/AAPL/range/1/day/2010-01-04/2010-01-15",
+    "params": {
+      "adjusted": "true",
+      "sort": "asc",
+      "limit": 20
+    },
+    "review_note": "Kontrola glebi historii 1D dla starego, zamknietego zakresu."
+  }
+}

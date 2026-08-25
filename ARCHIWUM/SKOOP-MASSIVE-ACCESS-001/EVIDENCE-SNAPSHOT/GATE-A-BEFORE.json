@@ -1,0 +1,18 @@
+{
+  "package": "SKOOP-MASSIVE-ACCESS-001",
+  "stage": "BEFORE_GATE_A_CODE",
+  "timestamp_utc": "2026-08-24T12:16:51.9188174Z",
+  "target_package_existed": false,
+  "secret_file_read": false,
+  "network_used": false,
+  "frozen_db_hashes": {
+    "scanner.db": "A1D2512AC200AC00ED868A9E110E01902D9518B089CEA3C8E2ED536BBBD925D8",
+    "market.db": "659AD89960373747ED44D4177ABF60A42B84DC29AD67FCA5F8AA7B7FAA335FDB",
+    "provider_state.db": "6B56DAA18B26B9AB2024D63E5701757D101BA2C8B116637C6FB8C4B4245368CF"
+  },
+  "protected_tree_digests": {
+    "OLD-r599-1TO1": "d66cb2404680fba09fca967a1127f10917ab88adec062c8b67783dc63220a4e6",
+    "C:\\Skaner wykresów": "6164a198fde2cbf46d4be5d0573191bad570b3f4e8cd977302f302bae8b0a59a",
+    "SKOOP placeholder": "1e07dd672a7021838b989394d4c38d1dcb91abd9eac67832341123bfaaf481e0"
+  }
+}

@@ -24,4 +24,9 @@
 | ART-020 | visual evidence | pełny render OLD 1920×1080 z wykresem NVDA | `C:\SKOOP-ARCHIWUM\OLD-R599-1TO1-RESTORE-20260822-001\EVIDENCE\PODGLAD-OLD-r599-VERIFIED.png` | `VERIFIED` | manifest OLD restore | OLD-R599-1TO1-RESTORE-20260822-001 |
 | ART-021 | AS-BUILT OLD 1:1 | finalny kontrakt i quality gate | `C:\SKOOP-ARCHIWUM\OLD-R599-1TO1-RESTORE-20260822-001\FINAL-AS-BUILT-SPEC.md` | `FROZEN` | manifest OLD restore | OLD-R599-1TO1-RESTORE-20260822-001 |
 
+
+| ART-022 | FINAL AS-BUILT Massive access | finalny kontrakt lokalnej paczki dostępu i wyniki planu | `../ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/12-FINAL-AS-BUILT-SPEC.md` | `FROZEN` | `HASHES-SHA256.txt` | SKOOP-MASSIVE-ACCESS-001 |
+| ART-023 | oczyszczone dowody Gate B | statusy/pola bez wartości, plan endpointów, manifest kodu i test 5 lat | `../ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/EVIDENCE-SNAPSHOT/` | `FROZEN / NO SECRETS` | `HASHES-SHA256.txt` | SKOOP-MASSIVE-ACCESS-001 |
+| ART-024 | snapshot kodu paczki | 12 plików izolowanego dostępu Massive, bez klucza, logów i baz | `../ARCHIWUM/SKOOP-MASSIVE-ACCESS-001/CODE-SNAPSHOT/` | `FROZEN / 12 FILES` | `HASHES-SHA256.txt` | SKOOP-MASSIVE-ACCESS-001 |
+
 Każdy nowy artefakt otrzymuje następny numer `ART-NNN`, opis, dokładną ścieżkę, status, hash/manifest i Package ID. Załączników nie osadza się w MASTER.
